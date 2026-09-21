@@ -1,0 +1,26 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bforestsky001"]
+
+[ext_resource type="Shader" uid="uid://brnjxrabhaqt3" path="res://assets/environment/forest_sky.gdshader" id="1_sky"]
+[ext_resource type="Texture3D" uid="uid://bcloudnoise01" path="res://assets/environment/cloud_noise.tres" id="2_cloud"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_sky")
+shader_parameter/zenith = Color(0.3, 0.56, 0.92, 1)
+shader_parameter/horizon = Color(0.8, 0.9, 0.98, 1)
+shader_parameter/below_horizon = Color(0.36, 0.44, 0.32, 1)
+shader_parameter/horizon_falloff = 0.55
+shader_parameter/sun_colour = Color(1, 0.96, 0.86, 1)
+shader_parameter/sun_size_degrees = 4.0
+shader_parameter/sun_energy = 9.0
+shader_parameter/sun_haze = Color(1, 0.93, 0.75, 1)
+shader_parameter/haze_spread = 7.0
+shader_parameter/haze_strength = 0.55
+shader_parameter/sun_from = Vector3(0.35, 0.55, 0.75)
+shader_parameter/cloud_noise = ExtResource("2_cloud")
+shader_parameter/cloud_lit = Color(1, 0.99, 0.96, 1)
+shader_parameter/cloud_shaded = Color(0.72, 0.78, 0.88, 1)
+shader_parameter/cloud_scale = 0.5
+shader_parameter/coverage = 0.6
+shader_parameter/cloud_softness = 0.16
+shader_parameter/drift_speed = 0.012

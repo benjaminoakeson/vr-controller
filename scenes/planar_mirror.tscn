@@ -1,0 +1,28 @@
+[gd_scene format=3 uid="uid://jcrpb1evmnvm"]
+
+[ext_resource type="Script" uid="uid://c3iidkg3k8qsr" path="res://scripts/mirror/planar_mirror.gd" id="1_4ngdm"]
+[ext_resource type="Material" uid="uid://das1e1v4wrgsb" path="res://assets/materials/white.tres" id="2_4ngdm"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_6x1ae"]
+size = Vector2(3, 2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_6x1ae"]
+material = ExtResource("2_4ngdm")
+size = Vector3(3.1, 2.1, 0.1)
+
+[node name="PlanarMirror" type="Node3D" unique_id=1999928701]
+script = ExtResource("1_4ngdm")
+
+[node name="Surface" type="MeshInstance3D" parent="." unique_id=1793595869]
+mesh = SubResource("QuadMesh_6x1ae")
+
+[node name="Frame" type="MeshInstance3D" parent="." unique_id=1643463859]
+mesh = SubResource("BoxMesh_6x1ae")
+
+[node name="LeftEyeViewport" type="SubViewport" parent="." unique_id=2096202791]
+
+[node name="Camera" type="Camera3D" parent="LeftEyeViewport" unique_id=295940044]
+
+[node name="RightEyeViewport" type="SubViewport" parent="." unique_id=1883225586]
+
+[node name="Camera" type="Camera3D" parent="RightEyeViewport" unique_id=1415465805]

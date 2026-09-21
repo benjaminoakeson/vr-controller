@@ -1,0 +1,26 @@
+[gd_resource type="Environment" format=3 uid="uid://doistbak7qjoo"]
+
+[ext_resource type="Material" uid="uid://bforestsky001" path="res://assets/environment/forest/forest_sky.tres" id="1_71cci"]
+
+[sub_resource type="Sky" id="Sky_forest"]
+sky_material = ExtResource("1_71cci")
+process_mode = 2
+radiance_size = 2
+
+[resource]
+background_mode = 2
+sky = SubResource("Sky_forest")
+ambient_light_source = 3
+ambient_light_color = Color(0.55, 0.6, 0.42, 1)
+ambient_light_sky_contribution = 0.7
+ambient_light_energy = 1.35
+reflected_light_source = 2
+tonemap_mode = 2
+tonemap_white = 2.0
+glow_enabled = true
+glow_bloom = 0.08
+glow_hdr_threshold = 1.1
+adjustment_enabled = true
+adjustment_brightness = 1.02
+adjustment_contrast = 1.04
+adjustment_saturation = 1.12

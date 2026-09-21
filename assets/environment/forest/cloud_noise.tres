@@ -1,0 +1,12 @@
+[gd_resource type="NoiseTexture3D" format=3 uid="uid://bcloudnoise01"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_cloud"]
+noise_type = 0
+seed = 3
+frequency = 0.028
+fractal_type = 2
+fractal_octaves = 4
+
+[resource]
+noise = SubResource("FastNoiseLite_cloud")
+seamless = true

@@ -1,0 +1,75 @@
+[gd_scene format=3 uid="uid://clpipomfisq4o"]
+
+[ext_resource type="Material" uid="uid://dqik22tpdrsmu" path="res://assets/materials/black.tres" id="1_w7c3h"]
+[ext_resource type="Environment" uid="uid://doistbak7qjoo" path="res://assets/environment/forest/forest.tres" id="1_w8frs"]
+[ext_resource type="PackedScene" uid="uid://dt3cbqiijijia" path="res://scenes/player/vr_controller.tscn" id="2_w8frs"]
+[ext_resource type="PackedScene" uid="uid://jcrpb1evmnvm" path="res://scenes/planar_mirror.tscn" id="3_mx8sn"]
+[ext_resource type="Material" uid="uid://das1e1v4wrgsb" path="res://assets/materials/white.tres" id="3_ppgk2"]
+
+[node name="Level" type="Node3D" unique_id=728325349]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1359735385]
+transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 0, 0)
+light_energy = 0.75
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=487945246]
+environment = ExtResource("1_w8frs")
+
+[node name="CSGCombiner3D" type="CSGCombiner3D" parent="." unique_id=959610046]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+use_collision = true
+collision_mask = 0
+
+[node name="CSGBox3D" type="CSGBox3D" parent="CSGCombiner3D" unique_id=1638572647]
+size = Vector3(10, 1, 10)
+material = ExtResource("1_w7c3h")
+
+[node name="CSGBox3D2" type="CSGBox3D" parent="CSGCombiner3D" unique_id=117030664]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 4.5)
+size = Vector3(10, 7, 1)
+material = ExtResource("1_w7c3h")
+
+[node name="CSGBox3D3" type="CSGBox3D" parent="CSGCombiner3D" unique_id=2061563009]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4, 0)
+size = Vector3(10, 1, 10)
+material = ExtResource("1_w7c3h")
+
+[node name="CSGBox3D4" type="CSGBox3D" parent="CSGCombiner3D" unique_id=1055348571]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 2.75)
+operation = 2
+material = ExtResource("3_ppgk2")
+
+[node name="CSGBox3D5" type="CSGBox3D" parent="CSGCombiner3D" unique_id=1248786423]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.75, 1.5, 1)
+size = Vector3(0.25, 2, 1)
+material = ExtResource("1_w7c3h")
+
+[node name="CSGBox3D6" type="CSGBox3D" parent="CSGCombiner3D" unique_id=1023869725]
+transform = Transform3D(1, 0, 0, 0, 0.9659258, -0.25881904, 0, 0.25881904, 0.9659258, 5.5, -3.2272565, -1.1518673)
+size = Vector3(1, 1, 8.2438965)
+material = ExtResource("1_w7c3h")
+
+[node name="CSGBox3D9" type="CSGBox3D" parent="CSGCombiner3D" unique_id=1628349671]
+transform = Transform3D(-4.371139e-08, 0.25881904, 0.9659258, 0, 0.96592593, -0.25881907, -1.0000001, -1.13133405e-08, -4.2221963e-08, 0.1777496, -1.1406533, -5.5)
+size = Vector3(1, 1, 8.911133)
+material = ExtResource("1_w7c3h")
+
+[node name="CSGBox3D7" type="CSGBox3D" parent="CSGCombiner3D" unique_id=1280101705]
+transform = Transform3D(1, 0, 0, 0, 1.0000001, 0, 0, 0, 1.0000001, 5.5, -4, 3.0000005)
+size = Vector3(1, 1, 4)
+material = ExtResource("1_w7c3h")
+
+[node name="CSGBox3D8" type="CSGBox3D" parent="CSGCombiner3D" unique_id=489918476]
+transform = Transform3D(1, 0, 0, 0, 1.0000001, 0, 0, 0, 1.0000001, 5, -2.1790695, -5.499999)
+size = Vector3(2, 1, 1)
+material = ExtResource("1_w7c3h")
+
+[node name="CSGBox3D10" type="CSGBox3D" parent="CSGCombiner3D" unique_id=1820539011]
+transform = Transform3D(1, 0, 0, 0, 1.0000001, 0, 0, 0, 1.0000001, -4.5, 0, -5.5)
+material = ExtResource("1_w7c3h")
+
+[node name="PlanarMirror" parent="." unique_id=1999928701 instance=ExtResource("3_mx8sn")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -1)
+
+[node name="VrController" parent="." unique_id=788331903 instance=ExtResource("2_w8frs")]
