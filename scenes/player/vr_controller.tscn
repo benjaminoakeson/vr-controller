@@ -67,28 +67,16 @@ uv1_triplanar = true
 material = SubResource("StandardMaterial3D_5d3me")
 size = Vector3(0.07, 0.07, 0.05)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_c6yjb"]
-transparency = 1
-albedo_color = Color(0.6673482, 0.72867846, 0.42133605, 0.5294118)
-albedo_texture = ExtResource("2_6fl0g")
-uv1_scale = Vector3(10, 10, 10)
-uv1_triplanar = true
-
-[sub_resource type="SphereMesh" id="SphereMesh_fdapi"]
-material = SubResource("StandardMaterial3D_c6yjb")
-radius = 0.05
-height = 0.1
-
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_f6tug"]
 transparency = 1
-albedo_color = Color(0.4780333, 0.7838393, 0.37171796, 0.5294118)
+albedo_color = Color(0.9193682, 0.6002037, 0.48893827, 0.5294118)
 albedo_texture = ExtResource("2_6fl0g")
-uv1_scale = Vector3(7, 7, 7)
+uv1_scale = Vector3(4, 4, 4)
 uv1_triplanar = true
 
-[sub_resource type="BoxMesh" id="BoxMesh_qcsb7"]
+[sub_resource type="BoxMesh" id="BoxMesh_sbyol"]
 material = SubResource("StandardMaterial3D_f6tug")
-size = Vector3(0.05, 0.05, 0.2)
+size = Vector3(0.05, 0.05, 0.25)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wwe2k"]
 transparency = 1
@@ -100,6 +88,18 @@ uv1_triplanar = true
 [sub_resource type="BoxMesh" id="BoxMesh_m14fv"]
 material = SubResource("StandardMaterial3D_wwe2k")
 size = Vector3(0.05, 0.05, 0.05)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_c6yjb"]
+transparency = 1
+albedo_color = Color(0.6673482, 0.72867846, 0.42133605, 0.5294118)
+albedo_texture = ExtResource("2_6fl0g")
+uv1_scale = Vector3(10, 10, 10)
+uv1_triplanar = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_fdapi"]
+material = SubResource("StandardMaterial3D_c6yjb")
+radius = 0.05
+height = 0.1
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_p21nv"]
 transparency = 1
@@ -127,7 +127,7 @@ show_when_tracked = true
 tracker = &"right_hand"
 show_when_tracked = true
 
-[node name="StaticSkeleton" type="Node3D" parent="XROrigin3D" unique_id=355727752 node_paths=PackedStringArray("hmd", "left_controller", "right_controller", "eye_tracker", "head_tracker", "neck_tracker", "left_hand_tracker", "right_hand_tracker", "left_wrist_tracker", "right_wrist_tracker", "torso_tracker", "left_shoulder_tracker", "right_shoulder_tracker", "left_elbow_tracker", "right_elbow_tracker")]
+[node name="StaticSkeleton" type="Node3D" parent="XROrigin3D" unique_id=355727752 node_paths=PackedStringArray("hmd", "left_controller", "right_controller", "eye_tracker", "head_tracker", "neck_tracker", "left_hand_tracker", "right_hand_tracker", "left_wrist_tracker", "right_wrist_tracker", "torso_tracker", "left_shoulder_tracker", "right_shoulder_tracker", "left_elbow_tracker", "right_elbow_tracker", "left_forearm_tracker", "right_forearm_tracker")]
 script = ExtResource("3_8uny6")
 hmd = NodePath("../HMD")
 left_controller = NodePath("../LeftController")
@@ -144,6 +144,8 @@ left_shoulder_tracker = NodePath("LeftShoulderTracker")
 right_shoulder_tracker = NodePath("RightShoulderTracker")
 left_elbow_tracker = NodePath("LeftElbowTracker")
 right_elbow_tracker = NodePath("RightElbowTracker")
+left_forearm_tracker = NodePath("LeftForearmTracker")
+right_forearm_tracker = NodePath("RightForearmTracker")
 
 [node name="EyeTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1598994774]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, -0.1)
@@ -180,21 +182,23 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1.25, 0)
 [node name="LeftWristTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftWristTracker" unique_id=170647173]
 mesh = SubResource("BoxMesh_blmu4")
 
-[node name="LeftShoulderTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1749785421]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15, 1.58, 0)
+[node name="LeftForearmTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=2094737161]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, 1.35, 0)
 
-[node name="LeftShoulderTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftShoulderTracker" unique_id=610495052]
-mesh = SubResource("SphereMesh_fdapi")
-
-[node name="UpperArmTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftShoulderTracker" unique_id=1500331239]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.1)
-mesh = SubResource("BoxMesh_qcsb7")
+[node name="LeftForearmTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftForearmTracker" unique_id=1090217103]
+mesh = SubResource("BoxMesh_sbyol")
 
 [node name="LeftElbowTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=268076544]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 1.5, 0)
 
 [node name="LeftElbowTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftElbowTracker" unique_id=132199328]
 mesh = SubResource("BoxMesh_m14fv")
+
+[node name="LeftShoulderTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1749785421]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15, 1.58, 0)
+
+[node name="LeftShoulderTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftShoulderTracker" unique_id=610495052]
+mesh = SubResource("SphereMesh_fdapi")
 
 [node name="RightHandTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=150835307]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.25, -0.1)
@@ -208,21 +212,23 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.25, 0)
 [node name="RightWristTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightWristTracker" unique_id=229191302]
 mesh = SubResource("BoxMesh_blmu4")
 
-[node name="RightShoulderTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1986958259]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.15, 1.58, 0)
+[node name="RightForearmTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=271962826]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.45, 1.35, 0)
 
-[node name="RightShoulderTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightShoulderTracker" unique_id=789936551]
-mesh = SubResource("SphereMesh_fdapi")
-
-[node name="UpperArmTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightShoulderTracker" unique_id=489311226]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.1)
-mesh = SubResource("BoxMesh_qcsb7")
+[node name="RightForearmTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightForearmTracker" unique_id=2002889071]
+mesh = SubResource("BoxMesh_sbyol")
 
 [node name="RightElbowTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1365295424]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 1.5, 0)
 
 [node name="RightElbowTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightElbowTracker" unique_id=972320993]
 mesh = SubResource("BoxMesh_m14fv")
+
+[node name="RightShoulderTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1986958259]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.15, 1.58, 0)
+
+[node name="RightShoulderTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightShoulderTracker" unique_id=789936551]
+mesh = SubResource("SphereMesh_fdapi")
 
 [node name="TorsoTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=586061951]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.35, 0)

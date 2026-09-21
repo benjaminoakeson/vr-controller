@@ -40,6 +40,8 @@ const FULL_SHOULDER_SPAN := 0.35
 @export var right_shoulder_tracker: Node3D
 @export var left_elbow_tracker: Node3D
 @export var right_elbow_tracker: Node3D
+@export var left_forearm_tracker: Node3D
+@export var right_forearm_tracker: Node3D
 
 @export_group("Offsets")
 @export var head_offset := Vector3(0.0, -0.02, 0.10)
@@ -63,7 +65,7 @@ const FULL_SHOULDER_SPAN := 0.35
 ## degrees. A grip pose sits rotated relative to the hand it is held in:
 ## roughly -60 on X for Meta Touch, -40 for Pico, -45 as a generic start.
 ## Applied identically to both hands - only the translation mirrors.
-@export var hand_rotation_degrees := Vector3(-30.0, 0.0, 0.0)
+@export var hand_rotation_degrees := Vector3(-15.0, 0.0, 0.0)
 ## Palm centre back to the wrist joint, in hand-local space.
 @export var wrist_offset := Vector3(0.0, 0.0, 0.08)
 
@@ -76,6 +78,10 @@ const FULL_SHOULDER_SPAN := 0.35
 ## How strongly the hands steer the chest's facing.
 @export_range(0.0, 1.0) var hands_steer_torso := 0.75
 @export var torso_yaw_smoothing := 6.0
+## How fast the chest falls back under the head while a hand reading is being
+## rejected. Without this a rejected reading freezes the chest, and a frozen
+## chest can never come back into agreement - the gate becomes a trap.
+@export var torso_recovery_rate := 3.0
 ## How far the head may twist before it drags the chest around with it.
 @export var max_head_twist_degrees := 80.0
 
@@ -93,6 +99,54 @@ const FULL_SHOULDER_SPAN := 0.35
 ## Which way the elbow prefers to point, in torso-local space: outward, down and
 ## back. Mirrored on X for the left arm. Only the direction matters.
 @export var elbow_pole_hint := Vector3(0.5, -1.0, 0.5)
+
+@export_group("Elbow hint cases")
+## Two poses where the base hint reads wrong. Each blends in only within its own
+## configuration and fades to nothing outside it, so every arm position that
+## already bends correctly is left alone. Set a strength to 0 to A/B it.
+##
+## Hand below the shoulder with the wrist aimed outward: the upper arm should
+## carry more outward and less downward than the base hint gives it.
+@export var low_outward_hint := Vector3(1.0, -0.3, 0.0)
+@export_range(0.0, 1.0) var low_outward_strength := 1.0
+## Hand above the shoulder and in front, wrist aimed forward: the upper arm
+## should carry forward and up rather than flaring out to the side.
+@export var high_forward_hint := Vector3(0.3, 0.4, -1.0)
+@export_range(0.0, 1.0) var high_forward_strength := 1.0
+
+@export_group("Shoulder limits")
+## How far the upper arm may swing horizontally away from pointing straight out
+## to the side, in torso space. You can bring an arm a long way across the front
+## of your body but only a little way behind it, and not straight inward at all
+## - that last one falls out of the other two rather than needing its own knob.
+##
+## Elevation is never limited, only this horizontal direction, and even that
+## relaxes to nothing as the arm approaches vertical: overhead you can reach
+## across freely, and near vertical the horizontal direction of an arm barely
+## determines where its elbow sits.
+@export var shoulder_limit_forward := 135.0
+@export var shoulder_limit_backward := 50.0
+
+@export_group("Arm twist")
+## How far the forearm alone can twist, either side of neutral. Beyond this the
+## shoulder has to supply the rest.
+@export var forearm_twist_limit := 90.0
+## How far the humerus may rotate about its own axis. It carries whatever the
+## forearm could not, which is why people twist the forearm to its limit before
+## the shoulder starts moving.
+@export var shoulder_twist_limit := 90.0
+## Zeroes the measurement against your own hand calibration. Hold a palm flat
+## and downward and adjust until the reported twist reads zero.
+@export var twist_neutral_degrees := 0.0
+## Where along the forearm its twist tracker sits, 0 at the elbow and 1 at the
+## wrist. Pronation is distributed along the bone rather than happening at a
+## joint, so this position is also the share of the twist the tracker carries.
+@export_range(0.0, 1.0) var forearm_twist_position := 0.5
+
+# Total hand roll per arm, in degrees, measured against the untwisted arm.
+# Exposed for inspection while this is being calibrated.
+var left_arm_twist := 0.0
+var right_arm_twist := 0.0
 
 # The chest's facing persists between frames. Unlike every tracker above it, the
 # torso is not a pure function of the current pose - it has memory, which is
@@ -208,21 +262,44 @@ func _solve_torso(delta: float) -> void:
 	if neck_tracker == null or head_tracker == null or torso_tracker == null:
 		return
 
+	var head_forward := _flatten_facing(head_tracker.global_basis)
+
 	# 1. Drift toward the hands, weighted by how much they can be trusted.
+	#    `rejected` is how much of a usable reading is being thrown away, which
+	#    is different from having no reading at all.
+	var rejected := 0.0
 	var tangent := _shoulder_tangent()
 	var span := tangent.length()
 	if span >= MIN_SHOULDER_SPAN:
+		var hands_forward := Vector3.UP.cross(tangent / span)
+
 		# Direction error scales inversely with span, so trust scales with it.
 		var confidence := clampf(
 			inverse_lerp(MIN_SHOULDER_SPAN, FULL_SHOULDER_SPAN, span), 0.0, 1.0)
-		var hands_forward := Vector3.UP.cross(tangent / span)
-		var weight := 1.0 - exp(
-			-torso_yaw_smoothing * hands_steer_torso * confidence * delta)
+
+		# Crossing your arms swaps which hand is on which side while your
+		# shoulders stay put, so the shoulder line reverses and reads as a chest
+		# facing backwards. The premise that hands mirror shoulders is simply
+		# false in that pose, so fade the reading out as it diverges from where
+		# the chest already points: full trust within 60 degrees, none past 90.
+		var agreement := smoothstep(0.0, 0.5, hands_forward.dot(_torso_forward))
+		rejected = 1.0 - agreement
+
+		var weight := 1.0 - exp(-torso_yaw_smoothing
+			* hands_steer_torso * confidence * agreement * delta)
 		_torso_forward = _torso_forward.slerp(hands_forward, weight)
 
-	# 2. The head can only twist so far before the chest has to come along.
-	_torso_forward = _constrain_twist(
-		_torso_forward, _flatten_facing(head_tracker.global_basis))
+	# 2. While a reading is being rejected, fall back under the head. This is
+	#    the way out of the deadlock where the chest lags a fast turn far enough
+	#    that the reading is discarded, leaving nothing able to close the gap.
+	#    Hands simply being too close together is not a rejection - there is no
+	#    disagreement to escape, so the chest holds instead.
+	if rejected > 0.0:
+		_torso_forward = _torso_forward.slerp(
+			head_forward, 1.0 - exp(-torso_recovery_rate * rejected * delta))
+
+	# 3. The head can only twist so far before the chest has to come along.
+	_torso_forward = _constrain_twist(_torso_forward, head_forward)
 
 	# 3. Tilt cascades down from the neck, reduced again.
 	var neck_basis := neck_tracker.global_basis
@@ -290,8 +367,10 @@ func _solve_shoulder(shoulder: Node3D, wrist: Node3D, is_left: bool) -> void:
 
 ## Both elbows.
 func _solve_elbows() -> void:
-	_solve_elbow(left_shoulder_tracker, left_elbow_tracker, left_wrist_tracker, true)
-	_solve_elbow(right_shoulder_tracker, right_elbow_tracker, right_wrist_tracker, false)
+	_solve_elbow(left_shoulder_tracker, left_elbow_tracker,
+			left_forearm_tracker, left_wrist_tracker, true)
+	_solve_elbow(right_shoulder_tracker, right_elbow_tracker,
+			right_forearm_tracker, right_wrist_tracker, false)
 
 
 ## Two-bone IK. The shoulder and wrist are both known and the bone lengths are
@@ -306,6 +385,7 @@ func _solve_elbows() -> void:
 func _solve_elbow(
 		shoulder: Node3D,
 		elbow: Node3D,
+		forearm_tracker: Node3D,
 		wrist: Node3D,
 		is_left: bool) -> void:
 	if shoulder == null or elbow == null or wrist == null or torso_tracker == null:
@@ -321,7 +401,7 @@ func _solve_elbow(
 
 	# The hint, projected into the plane the elbow circle lies in. A hint
 	# parallel to the arm says nothing about which way round the circle to go.
-	var hint := elbow_pole_hint
+	var hint := _elbow_hint_for(origin, wrist, is_left, torso_basis)
 	if is_left:
 		hint.x = -hint.x
 	var pole := (torso_basis * hint).slide(axis)
@@ -345,16 +425,157 @@ func _solve_elbow(
 				upper_arm_length * upper_arm_length - along * along, 0.0))
 		elbow_position = origin + axis * along + pole * radius
 
+	# Clamp the upper arm into a reachable direction. When the wrist demands
+	# more than that, the forearm stretches instead of the elbow jumping to a
+	# different solution: a stretched arm is honest about being out of range,
+	# whereas a teleported elbow invents a pose the body never passed through.
+	var arm := elbow_position - origin
+	if not arm.is_zero_approx():
+		elbow_position = origin + _clamp_upper_arm(
+				arm.normalized(), is_left) * upper_arm_length
+
 	var to_hand := wrist.global_position - elbow_position
-	var elbow_basis := torso_basis
-	if not to_hand.is_zero_approx():
-		elbow_basis = _look_along(to_hand.normalized(), torso_basis)
+	if to_hand.is_zero_approx():
+		return
+	var forearm_axis := to_hand.normalized()
+
+	# The elbow is a hinge. It has no roll axis, so it carries none of the
+	# twist - its orientation comes purely from the arm's geometry.
+	var elbow_basis := _look_along(forearm_axis, torso_basis)
 	elbow.global_transform = Transform3D(elbow_basis, elbow_position)
 
-	# The upper arm points at the elbow, not the wrist.
+	# Stage one: measure the hand's roll and spend it all on the forearm. Roll
+	# about the forearm's own axis moves no joint, so a wrong measurement gives
+	# a spinning forearm rather than a broken arm.
+	var twist := _measure_arm_twist(forearm_axis, pole, wrist)
+	if is_left:
+		left_arm_twist = rad_to_deg(twist)
+	else:
+		right_arm_twist = rad_to_deg(twist)
+
+	# The forearm takes what it can and the shoulder carries the overflow, which
+	# is why a real arm pronates to its limit before the shoulder starts to
+	# rotate. Both shares are spent as rolls about axes their segments already
+	# lie on, so neither moves a joint - this is allocation made visible, not
+	# yet allocation driving the geometry.
+	var forearm_limit := deg_to_rad(forearm_twist_limit)
+	var shoulder_limit := deg_to_rad(shoulder_twist_limit)
+	var forearm_share := clampf(twist, -forearm_limit, forearm_limit)
+	var shoulder_share := clampf(twist - forearm_share, -shoulder_limit, shoulder_limit)
+
+	if forearm_tracker != null:
+		# Position along the bone is also the share of the twist carried, and
+		# the segment is measured rather than assumed so a stretched arm keeps
+		# its forearm tracker in proportion.
+		forearm_tracker.global_transform = Transform3D(
+			elbow_basis.rotated(forearm_axis, forearm_share * forearm_twist_position),
+			elbow_position + to_hand * forearm_twist_position)
+
+	# The upper arm points at the elbow, not the wrist, and rolls by whatever
+	# the forearm could not supply.
 	var to_elbow := elbow_position - origin
 	if not to_elbow.is_zero_approx():
-		shoulder.global_basis = _look_along(to_elbow.normalized(), torso_basis)
+		var upper_arm_axis := to_elbow.normalized()
+		shoulder.global_basis = _look_along(upper_arm_axis, torso_basis).rotated(
+				upper_arm_axis, shoulder_share)
+
+
+## The base elbow hint, nudged toward a different one in the two configurations
+## where the base reads wrong. Both weights are products of smoothsteps that go
+## to zero outside their own case, so this returns the base hint unchanged for
+## every pose that already bends correctly.
+##
+## Works in torso space with the left arm mirrored, so one set of numbers covers
+## both sides. Returns the hint unmirrored, for the caller to flip.
+func _elbow_hint_for(
+		shoulder_position: Vector3,
+		wrist: Node3D,
+		is_left: bool,
+		torso_basis: Basis) -> Vector3:
+	var to_torso := torso_basis.inverse()
+	var offset := to_torso * (wrist.global_position - shoulder_position)
+	# Which way the wrist faces, as opposed to where it is. The sign is settled
+	# by observation rather than by the grip pose's documented axes: +Z is what
+	# actually reads as outward and forward on this hardware.
+	var aim := to_torso * wrist.global_basis.z
+	if is_left:
+		offset.x = -offset.x
+		aim.x = -aim.x
+
+	var hint := elbow_pole_hint
+
+	# Below the shoulder, aimed outward.
+	hint = hint.lerp(low_outward_hint, low_outward_strength
+			* smoothstep(0.0, 0.25, -offset.y)
+			* smoothstep(0.3, 0.8, aim.x))
+
+	# Above the shoulder, aimed forward. Deliberately not gated on being in
+	# front of the body: reaching back behind your head wants the same forward
+	# elbow as reaching up in front of you, and gating on it both killed the
+	# case mid-reach and kept the weight from ever reaching full strength.
+	hint = hint.lerp(high_forward_hint, high_forward_strength
+			* smoothstep(0.0, 0.25, offset.y)
+			* smoothstep(0.3, 0.8, -aim.z))
+
+	return hint
+
+
+## The hand's roll about the forearm, measured against an untwisted arm - which
+## is the total twist the arm has to supply from somewhere, before deciding how
+## much of it the forearm and the shoulder each contribute.
+##
+## The reference is the pole: with no twist anywhere, the hand's up axis sits in
+## the arm's own plane, on the elbow's side of it.
+func _measure_arm_twist(forearm: Vector3, pole: Vector3, wrist: Node3D) -> float:
+	var reference := pole.slide(forearm)
+	var actual := wrist.global_basis.y.slide(forearm)
+	if reference.is_zero_approx() or actual.is_zero_approx():
+		return 0.0
+	return wrapf(
+			reference.normalized().signed_angle_to(actual.normalized(), forearm)
+			- deg_to_rad(twist_neutral_degrees),
+			-PI, PI)
+
+
+## Clamps an upper-arm direction into the range a shoulder can actually reach.
+## Works in torso space with the left arm mirrored, so both sides share one set
+## of numbers, and blends the four directional limits by how much the arm points
+## each way - which is what makes the boundary lopsided rather than a cone.
+func _clamp_upper_arm(direction: Vector3, is_left: bool) -> Vector3:
+	if torso_tracker == null:
+		return direction
+
+	var torso_basis := torso_tracker.global_basis
+	var local := torso_basis.inverse() * direction
+	if is_left:
+		local.x = -local.x
+
+	# X is outward, Z is backward. How much of the arm lies in that plane is
+	# also how meaningful its horizontal direction is.
+	var horizontal := Vector2(local.x, local.z)
+	var horizontality := horizontal.length()
+	if horizontality < 0.001:
+		return direction
+
+	# Measured from straight out to the side, positive toward the back.
+	var azimuth := atan2(horizontal.y, horizontal.x)
+
+	# Both limits open out to unrestricted as the arm nears vertical.
+	var widen := 1.0 - horizontality
+	var forward_limit := lerpf(deg_to_rad(shoulder_limit_forward), PI, widen)
+	var backward_limit := lerpf(deg_to_rad(shoulder_limit_backward), PI, widen)
+	var clamped := clampf(azimuth, -forward_limit, backward_limit)
+	if is_equal_approx(clamped, azimuth):
+		return direction
+
+	# Swing horizontally only - elevation is untouched, so a clamped arm slides
+	# around the body rather than dropping.
+	var swung := Vector2(cos(clamped), sin(clamped)) * horizontality
+	local = Vector3(swung.x, local.y, swung.y).normalized()
+
+	if is_left:
+		local.x = -local.x
+	return torso_basis * local
 
 
 ## A basis whose -Z runs along `direction`, using the reference's up axis as the
