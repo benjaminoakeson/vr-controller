@@ -112,6 +112,30 @@ uv1_triplanar = true
 material = SubResource("StandardMaterial3D_p21nv")
 size = Vector3(0.25, 0.45, 0.1)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pelvis"]
+transparency = 1
+albedo_color = Color(0.91980237, 0.5860589, 0.5966441, 0.5294118)
+albedo_texture = ExtResource("2_6fl0g")
+uv1_scale = Vector3(6, 6, 6)
+uv1_triplanar = true
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pelvis"]
+material = SubResource("StandardMaterial3D_pelvis")
+top_radius = 0.05
+bottom_radius = 0.05
+height = 0.25
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_foot"]
+transparency = 1
+albedo_color = Color(0.6541884, 0.5085231, 0.8560731, 0.5294118)
+albedo_texture = ExtResource("2_6fl0g")
+uv1_scale = Vector3(6, 6, 6)
+uv1_triplanar = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_foot"]
+material = SubResource("StandardMaterial3D_foot")
+size = Vector3(0.09, 0.05, 0.24)
+
 [node name="VrController" type="Node3D" unique_id=788331903]
 script = ExtResource("1_xeh2f")
 
@@ -127,7 +151,7 @@ show_when_tracked = true
 tracker = &"right_hand"
 show_when_tracked = true
 
-[node name="StaticSkeleton" type="Node3D" parent="XROrigin3D" unique_id=355727752 node_paths=PackedStringArray("hmd", "left_controller", "right_controller", "eye_tracker", "head_tracker", "neck_tracker", "left_hand_tracker", "right_hand_tracker", "left_wrist_tracker", "right_wrist_tracker", "torso_tracker", "left_shoulder_tracker", "right_shoulder_tracker", "left_elbow_tracker", "right_elbow_tracker", "left_forearm_tracker", "right_forearm_tracker")]
+[node name="StaticSkeleton" type="Node3D" parent="XROrigin3D" unique_id=355727752 node_paths=PackedStringArray("hmd", "left_controller", "right_controller", "eye_tracker", "head_tracker", "neck_tracker", "left_hand_tracker", "right_hand_tracker", "left_wrist_tracker", "right_wrist_tracker", "torso_tracker", "left_shoulder_tracker", "right_shoulder_tracker", "left_elbow_tracker", "right_elbow_tracker", "left_forearm_tracker", "right_forearm_tracker", "hip_tracker", "left_foot_tracker", "right_foot_tracker", "left_hip_tracker", "right_hip_tracker", "left_knee_tracker", "right_knee_tracker", "left_ankle_tracker", "right_ankle_tracker")]
 script = ExtResource("3_8uny6")
 hmd = NodePath("../HMD")
 left_controller = NodePath("../LeftController")
@@ -146,6 +170,15 @@ left_elbow_tracker = NodePath("LeftElbowTracker")
 right_elbow_tracker = NodePath("RightElbowTracker")
 left_forearm_tracker = NodePath("LeftForearmTracker")
 right_forearm_tracker = NodePath("RightForearmTracker")
+hip_tracker = NodePath("HipTracker")
+left_foot_tracker = NodePath("LeftFootTracker")
+right_foot_tracker = NodePath("RightFootTracker")
+left_hip_tracker = NodePath("LeftHipTracker")
+right_hip_tracker = NodePath("RightHipTracker")
+left_knee_tracker = NodePath("LeftKneeTracker")
+right_knee_tracker = NodePath("RightKneeTracker")
+left_ankle_tracker = NodePath("LeftAnkleTracker")
+right_ankle_tracker = NodePath("RightAnkleTracker")
 
 [node name="EyeTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1598994774]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, -0.1)
@@ -235,3 +268,60 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.35, 0)
 
 [node name="TorsoTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/TorsoTracker" unique_id=1913405440]
 mesh = SubResource("BoxMesh_fdapi")
+
+[node name="HipTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002400]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+
+[node name="HipTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/HipTracker" unique_id=411002401]
+transform = Transform3D(-4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CylinderMesh_pelvis")
+
+[node name="LeftFootTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002410]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0, 0)
+
+[node name="LeftFootTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftFootTracker" unique_id=411002411]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.04)
+mesh = SubResource("BoxMesh_foot")
+
+[node name="RightFootTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002420]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0, 0)
+
+[node name="RightFootTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightFootTracker" unique_id=411002421]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.04)
+mesh = SubResource("BoxMesh_foot")
+
+[node name="LeftHipTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002430]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.09, 1, 0)
+
+[node name="LeftHipTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftHipTracker" unique_id=411002431]
+mesh = SubResource("SphereMesh_fdapi")
+
+[node name="RightHipTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002440]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.09, 1, 0)
+
+[node name="RightHipTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightHipTracker" unique_id=411002441]
+mesh = SubResource("SphereMesh_fdapi")
+
+[node name="LeftKneeTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002450]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.54, 0)
+
+[node name="LeftKneeTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftKneeTracker" unique_id=411002451]
+mesh = SubResource("BoxMesh_m14fv")
+
+[node name="RightKneeTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002460]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0.54, 0)
+
+[node name="RightKneeTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightKneeTracker" unique_id=411002461]
+mesh = SubResource("BoxMesh_m14fv")
+
+[node name="LeftAnkleTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002470]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.08, 0)
+
+[node name="LeftAnkleTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftAnkleTracker" unique_id=411002471]
+mesh = SubResource("BoxMesh_blmu4")
+
+[node name="RightAnkleTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002480]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0.08, 0)
+
+[node name="RightAnkleTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightAnkleTracker" unique_id=411002481]
+mesh = SubResource("BoxMesh_blmu4")
