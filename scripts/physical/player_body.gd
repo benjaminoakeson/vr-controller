@@ -95,6 +95,10 @@ var grounded := false
 var ground_normal := Vector3.UP
 ## How much of a run the arms are asking for, 0 for a walk to 1 for flat out.
 var run_factor := 0.0
+## How far the rig was pulled back this tick because the body could not
+## follow the headset, in metres; zero when nothing stopped it. Exposed for
+## measurement, not read by the body itself.
+var origin_correction := 0.0
 
 var _pump := 0.0
 var _left_hand_height := 0.0
@@ -194,13 +198,16 @@ func _fit_body() -> float:
 ## pulled back by the same amount, so the headset stays on this side of the
 ## wall in the world even though the player's head is through it in the room.
 func _follow_headset() -> void:
+	origin_correction = 0.0
 	var offset := hmd.global_position - global_position
 	offset.y = 0.0
 	if offset.length_squared() < 1e-8:
 		return
 	var hit := move_and_collide(offset)
 	if hit != null:
-		origin.global_position -= offset - hit.get_travel()
+		var pulled := offset - hit.get_travel()
+		origin.global_position -= pulled
+		origin_correction = pulled.length()
 
 
 ## Drops the ball from the headset. Grounded means it met something by the
