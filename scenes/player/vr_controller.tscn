@@ -1,11 +1,10 @@
 [gd_scene format=3 uid="uid://dt3cbqiijijia"]
 
 [ext_resource type="Script" uid="uid://on26pwqdr7t1" path="res://scripts/vr_controller/vr_controller.gd" id="1_xeh2f"]
-[ext_resource type="Texture2D" uid="uid://dg8seo2w0c65w" path="res://assets/materials/textures/prototype_transparent.png" id="2_6fl0g"]
+[ext_resource type="Texture2D" uid="uid://dg8seo2w0c65w" path="res://assets/materials/textures/prototype/prototype_transparent.png" id="2_6fl0g"]
 [ext_resource type="Script" uid="uid://s1fyeovwl05p" path="res://scripts/static_skeleton/static_skeleton.gd" id="3_8uny6"]
 [ext_resource type="Script" uid="uid://iai571swlqtg" path="res://scripts/static_skeleton/skeleton_debug.gd" id="4_debug"]
 [ext_resource type="Script" uid="uid://bxqjsf0kt1n2u" path="res://scripts/physical/player_body.gd" id="5_body"]
-[ext_resource type="Script" uid="uid://baoahxexm8b0t" path="res://scripts/debug/locomotion_recorder.gd" id="6_recorder"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_joint"]
 transparency = 1
@@ -48,6 +47,13 @@ enabled = false
 [node name="LeftController" type="XRController3D" parent="XROrigin3D" unique_id=1301267631]
 tracker = &"left_hand"
 show_when_tracked = true
+
+[node name="Readout" type="Label3D" parent="XROrigin3D/LeftController" unique_id=1429969114]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, 0.05)
+pixel_size = 0.0004
+billboard = 1
+no_depth_test = true
+outline_size = 8
 
 [node name="RightController" type="XRController3D" parent="XROrigin3D" unique_id=1426750136]
 tracker = &"right_hand"
@@ -162,20 +168,3 @@ script = ExtResource("4_debug")
 skeleton = NodePath("..")
 joint_material = SubResource("StandardMaterial3D_joint")
 bone_material = SubResource("StandardMaterial3D_bone")
-
-[node name="PhysicalSkeleton" type="Node3D" parent="XROrigin3D" unique_id=717073445]
-
-[node name="Readout" type="Label3D" parent="XROrigin3D/LeftController" unique_id=1429969114]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, 0.05)
-pixel_size = 0.0004
-billboard = 1
-no_depth_test = true
-font_size = 32
-outline_size = 8
-
-[node name="LocomotionRecorder" type="Node" parent="." unique_id=1579874890 node_paths=PackedStringArray("body", "skeleton", "toggle_controller", "readout")]
-script = ExtResource("6_recorder")
-body = NodePath("../PlayerBody")
-skeleton = NodePath("../XROrigin3D/StaticSkeleton")
-toggle_controller = NodePath("../XROrigin3D/LeftController")
-readout = NodePath("../XROrigin3D/LeftController/Readout")

@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://jcrpb1evmnvm"]
 
 [ext_resource type="Script" uid="uid://c3iidkg3k8qsr" path="res://scripts/mirror/planar_mirror.gd" id="1_4ngdm"]
-[ext_resource type="Material" uid="uid://das1e1v4wrgsb" path="res://assets/materials/white.tres" id="2_4ngdm"]
+[ext_resource type="Material" uid="uid://das1e1v4wrgsb" path="res://assets/materials/prototype/white.tres" id="2_4ngdm"]
 
 [sub_resource type="QuadMesh" id="QuadMesh_6x1ae"]
 size = Vector2(3, 2)

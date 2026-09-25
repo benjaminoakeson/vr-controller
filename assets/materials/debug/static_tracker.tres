@@ -1,9 +1,0 @@
-[gd_resource type="StandardMaterial3D" format=3 uid="uid://vv5it3ggrrvx"]
-
-[ext_resource type="Texture2D" uid="uid://dg8seo2w0c65w" path="res://assets/materials/textures/prototype_transparent.png" id="1_maog4"]
-
-[resource]
-transparency = 1
-albedo_color = Color(0.3372549, 0.7294118, 1, 0.5294118)
-albedo_texture = ExtResource("1_maog4")
-uv1_triplanar = true
