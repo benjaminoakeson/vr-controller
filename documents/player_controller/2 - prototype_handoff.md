@@ -203,9 +203,11 @@ the README should link to the repository controller documents instead.
 
 1. Capture the existing level's movement, stairs, crouching, room-scale correction,
    static foot placement, and arm-pump running as the comparison baseline.
+   Simulated baseline done; headset session pending. See [3 - locomotion_baseline.md](3%20-%20locomotion_baseline.md).
 2. Resolve the migration questions above in a concrete proposal: room-scale and
    head obstruction, capsule resizing, hierarchy, collision filtering, verified
    motor/grip properties, force coupling, and update/origin ownership.
+   Proposed in [4 - physical_body_proposal.md](4%20-%20physical_body_proposal.md); awaiting decisions.
 3. Replace the active character-body movement with the compact dynamic body and
    bounded slope-compensated motor. Keep only one active body/origin authority.
    Preserve the static contracts and expose tuning settings with units.
