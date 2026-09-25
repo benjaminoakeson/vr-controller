@@ -12,7 +12,7 @@ config_version=5
 
 config/name="VRController"
 run/main_scene="uid://clpipomfisq4o"
-config/features=PackedStringArray("4.7", "Forward Plus")
+config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
 [autoload]
@@ -30,14 +30,21 @@ window/stretch/aspect="expand"
 
 enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
 
+[layer_names]
+
+3d_physics/layer_1="Static"
+3d_physics/layer_2="Dynamic"
+3d_physics/layer_5="Player"
+
 [physics]
 
-common/physics_ticks_per_second=120
+common/physics_ticks_per_second=72
 3d/physics_engine="Jolt Physics"
 
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+renderer/rendering_method="mobile"
 
 [xr]
 
