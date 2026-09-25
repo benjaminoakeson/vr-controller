@@ -3,141 +3,42 @@
 [ext_resource type="Script" uid="uid://on26pwqdr7t1" path="res://scripts/vr_controller/vr_controller.gd" id="1_xeh2f"]
 [ext_resource type="Texture2D" uid="uid://dg8seo2w0c65w" path="res://assets/materials/textures/prototype_transparent.png" id="2_6fl0g"]
 [ext_resource type="Script" uid="uid://s1fyeovwl05p" path="res://scripts/static_skeleton/static_skeleton.gd" id="3_8uny6"]
+[ext_resource type="Script" uid="uid://iai571swlqtg" path="res://scripts/static_skeleton/skeleton_debug.gd" id="4_debug"]
+[ext_resource type="Script" uid="uid://bxqjsf0kt1n2u" path="res://scripts/physical/player_body.gd" id="5_body"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ojrn0"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_joint"]
 transparency = 1
 albedo_color = Color(1, 1, 1, 0.5294118)
 albedo_texture = ExtResource("2_6fl0g")
 uv1_scale = Vector3(10, 10, 10)
 uv1_triplanar = true
 
-[sub_resource type="SphereMesh" id="SphereMesh_547u0"]
-material = SubResource("StandardMaterial3D_ojrn0")
-radius = 0.02
-height = 0.04
-
-[sub_resource type="SphereMesh" id="SphereMesh_8uny6"]
-material = SubResource("StandardMaterial3D_ojrn0")
-radius = 0.02
-height = 0.04
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8uny6"]
-transparency = 1
-albedo_color = Color(0.31899908, 0.7499385, 0.9021803, 0.5294118)
-albedo_texture = ExtResource("2_6fl0g")
-uv1_scale = Vector3(3, 3, 3)
-uv1_triplanar = true
-
-[sub_resource type="SphereMesh" id="SphereMesh_c6yjb"]
-material = SubResource("StandardMaterial3D_8uny6")
-radius = 0.13
-height = 0.26
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sxqme"]
-transparency = 1
-albedo_color = Color(0.3724658, 0.84459186, 0.8491154, 0.5294118)
-albedo_texture = ExtResource("2_6fl0g")
-uv1_scale = Vector3(10, 10, 10)
-uv1_triplanar = true
-
-[sub_resource type="SphereMesh" id="SphereMesh_lpxu8"]
-material = SubResource("StandardMaterial3D_sxqme")
-radius = 0.05
-height = 0.1
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_547u0"]
-transparency = 1
-albedo_color = Color(1, 1, 1, 0.5294118)
-albedo_texture = ExtResource("2_6fl0g")
-uv1_scale = Vector3(5, 5, 5)
-uv1_triplanar = true
-
-[sub_resource type="BoxMesh" id="BoxMesh_pfuk6"]
-material = SubResource("StandardMaterial3D_547u0")
-size = Vector3(0.05, 0.1, 0.15)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5d3me"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bone"]
 transparency = 1
 albedo_color = Color(0.44289216, 0.7268011, 0.9190764, 0.5294118)
 albedo_texture = ExtResource("2_6fl0g")
 uv1_scale = Vector3(10, 10, 10)
 uv1_triplanar = true
 
-[sub_resource type="BoxMesh" id="BoxMesh_blmu4"]
-material = SubResource("StandardMaterial3D_5d3me")
-size = Vector3(0.07, 0.07, 0.05)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_f6tug"]
-transparency = 1
-albedo_color = Color(0.9193682, 0.6002037, 0.48893827, 0.5294118)
-albedo_texture = ExtResource("2_6fl0g")
-uv1_scale = Vector3(4, 4, 4)
-uv1_triplanar = true
-
-[sub_resource type="BoxMesh" id="BoxMesh_sbyol"]
-material = SubResource("StandardMaterial3D_f6tug")
-size = Vector3(0.05, 0.05, 0.25)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wwe2k"]
-transparency = 1
-albedo_color = Color(0.8543481, 0.65396905, 0.3066379, 0.5294118)
-albedo_texture = ExtResource("2_6fl0g")
-uv1_scale = Vector3(10, 10, 10)
-uv1_triplanar = true
-
-[sub_resource type="BoxMesh" id="BoxMesh_m14fv"]
-material = SubResource("StandardMaterial3D_wwe2k")
-size = Vector3(0.05, 0.05, 0.05)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_c6yjb"]
-transparency = 1
-albedo_color = Color(0.6673482, 0.72867846, 0.42133605, 0.5294118)
-albedo_texture = ExtResource("2_6fl0g")
-uv1_scale = Vector3(10, 10, 10)
-uv1_triplanar = true
-
-[sub_resource type="SphereMesh" id="SphereMesh_fdapi"]
-material = SubResource("StandardMaterial3D_c6yjb")
-radius = 0.05
-height = 0.1
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_p21nv"]
-transparency = 1
-albedo_color = Color(8.374751e-06, 0.81548995, 0.5689391, 0.5294118)
-albedo_texture = ExtResource("2_6fl0g")
-uv1_scale = Vector3(2, 2, 2)
-uv1_triplanar = true
-
-[sub_resource type="BoxMesh" id="BoxMesh_fdapi"]
-material = SubResource("StandardMaterial3D_p21nv")
-size = Vector3(0.25, 0.45, 0.1)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pelvis"]
-transparency = 1
-albedo_color = Color(0.91980237, 0.5860589, 0.5966441, 0.5294118)
-albedo_texture = ExtResource("2_6fl0g")
-uv1_scale = Vector3(6, 6, 6)
-uv1_triplanar = true
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_pelvis"]
-material = SubResource("StandardMaterial3D_pelvis")
-top_radius = 0.05
-bottom_radius = 0.05
-height = 0.25
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_foot"]
-transparency = 1
-albedo_color = Color(0.6541884, 0.5085231, 0.8560731, 0.5294118)
-albedo_texture = ExtResource("2_6fl0g")
-uv1_scale = Vector3(6, 6, 6)
-uv1_triplanar = true
-
-[sub_resource type="BoxMesh" id="BoxMesh_foot"]
-material = SubResource("StandardMaterial3D_foot")
-size = Vector3(0.09, 0.05, 0.24)
-
 [node name="VrController" type="Node3D" unique_id=788331903]
 script = ExtResource("1_xeh2f")
+
+[node name="PlayerBody" type="CharacterBody3D" parent="." unique_id=1879109888 node_paths=PackedStringArray("origin", "hmd", "left_controller", "right_controller", "skeleton", "collision", "ground_cast")]
+script = ExtResource("5_body")
+origin = NodePath("../XROrigin3D")
+hmd = NodePath("../XROrigin3D/HMD")
+left_controller = NodePath("../XROrigin3D/LeftController")
+right_controller = NodePath("../XROrigin3D/RightController")
+skeleton = NodePath("../XROrigin3D/StaticSkeleton")
+collision = NodePath("CollisionShape3D")
+ground_cast = NodePath("GroundCast")
+max_walk_speed = 1.5
+walk_acceleration = 15.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PlayerBody" unique_id=1111785034]
+
+[node name="GroundCast" type="ShapeCast3D" parent="PlayerBody" unique_id=1850926743]
+enabled = false
 
 [node name="XROrigin3D" type="XROrigin3D" parent="." unique_id=167908160]
 
@@ -179,149 +80,86 @@ left_knee_tracker = NodePath("LeftKneeTracker")
 right_knee_tracker = NodePath("RightKneeTracker")
 left_ankle_tracker = NodePath("LeftAnkleTracker")
 right_ankle_tracker = NodePath("RightAnkleTracker")
+finger_curl_degrees = Vector3(8, 4, 10)
+hand_clear_distance = 0.2
+upper_arm_length = 0.3
+forearm_length = 0.28
+thigh_length = 0.43
+shin_length = 0.43
 
 [node name="EyeTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1598994774]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, -0.1)
 
-[node name="RightEyeTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/EyeTracker" unique_id=1323906323]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.05, 0, 0)
-mesh = SubResource("SphereMesh_547u0")
-
-[node name="LeftEyeTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/EyeTracker" unique_id=101023090]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.05, 0, 0)
-mesh = SubResource("SphereMesh_8uny6")
-
 [node name="HeadTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1362290596]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.72, 0)
-
-[node name="HMDMesh" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/HeadTracker" unique_id=732482208]
-mesh = SubResource("SphereMesh_c6yjb")
 
 [node name="NeckTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=190946163]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.62, 0)
 
-[node name="NeckTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/NeckTracker" unique_id=1966786399]
-mesh = SubResource("SphereMesh_lpxu8")
-
 [node name="LeftHandTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1716630476]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1.25, -0.1)
-
-[node name="LeftHandTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftHandTracker" unique_id=1587576705]
-mesh = SubResource("BoxMesh_pfuk6")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1.25, -0.28606528)
 
 [node name="LeftWristTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=137681807]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1.25, 0)
-
-[node name="LeftWristTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftWristTracker" unique_id=170647173]
-mesh = SubResource("BoxMesh_blmu4")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1.25, -0.18606529)
 
 [node name="LeftForearmTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=2094737161]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, 1.35, 0)
 
-[node name="LeftForearmTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftForearmTracker" unique_id=1090217103]
-mesh = SubResource("BoxMesh_sbyol")
-
 [node name="LeftElbowTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=268076544]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 1.5, 0)
-
-[node name="LeftElbowTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftElbowTracker" unique_id=132199328]
-mesh = SubResource("BoxMesh_m14fv")
 
 [node name="LeftShoulderTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1749785421]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15, 1.58, 0)
 
-[node name="LeftShoulderTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftShoulderTracker" unique_id=610495052]
-mesh = SubResource("SphereMesh_fdapi")
-
 [node name="RightHandTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=150835307]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.25, -0.1)
-
-[node name="RightHandTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightHandTracker" unique_id=279628179]
-mesh = SubResource("BoxMesh_pfuk6")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.25, -0.28606528)
 
 [node name="RightWristTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=2106653204]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.25, 0)
-
-[node name="RightWristTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightWristTracker" unique_id=229191302]
-mesh = SubResource("BoxMesh_blmu4")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.25, -0.18606529)
 
 [node name="RightForearmTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=271962826]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.45, 1.35, 0)
 
-[node name="RightForearmTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightForearmTracker" unique_id=2002889071]
-mesh = SubResource("BoxMesh_sbyol")
-
 [node name="RightElbowTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1365295424]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 1.5, 0)
-
-[node name="RightElbowTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightElbowTracker" unique_id=972320993]
-mesh = SubResource("BoxMesh_m14fv")
 
 [node name="RightShoulderTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=1986958259]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.15, 1.58, 0)
 
-[node name="RightShoulderTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightShoulderTracker" unique_id=789936551]
-mesh = SubResource("SphereMesh_fdapi")
-
 [node name="TorsoTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=586061951]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.35, 0)
-
-[node name="TorsoTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/TorsoTracker" unique_id=1913405440]
-mesh = SubResource("BoxMesh_fdapi")
 
 [node name="HipTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002400]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
 
-[node name="HipTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/HipTracker" unique_id=411002401]
-transform = Transform3D(-4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0, 1, 0, 0, 0)
-mesh = SubResource("CylinderMesh_pelvis")
-
-[node name="LeftFootTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002410]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0, 0)
-
-[node name="LeftFootTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftFootTracker" unique_id=411002411]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.04)
-mesh = SubResource("BoxMesh_foot")
-
-[node name="RightFootTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002420]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0, 0)
-
-[node name="RightFootTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightFootTracker" unique_id=411002421]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.04)
-mesh = SubResource("BoxMesh_foot")
-
 [node name="LeftHipTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002430]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.09, 1, 0)
-
-[node name="LeftHipTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftHipTracker" unique_id=411002431]
-mesh = SubResource("SphereMesh_fdapi")
-
-[node name="RightHipTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002440]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.09, 1, 0)
-
-[node name="RightHipTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightHipTracker" unique_id=411002441]
-mesh = SubResource("SphereMesh_fdapi")
 
 [node name="LeftKneeTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002450]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.54, 0)
 
-[node name="LeftKneeTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftKneeTracker" unique_id=411002451]
-mesh = SubResource("BoxMesh_m14fv")
+[node name="LeftAnkleTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002470]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.08, 0)
+
+[node name="LeftFootTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002410]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0, 0)
+
+[node name="RightHipTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002440]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.09, 1, 0)
 
 [node name="RightKneeTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002460]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0.54, 0)
 
-[node name="RightKneeTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightKneeTracker" unique_id=411002461]
-mesh = SubResource("BoxMesh_m14fv")
-
-[node name="LeftAnkleTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002470]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.08, 0)
-
-[node name="LeftAnkleTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/LeftAnkleTracker" unique_id=411002471]
-mesh = SubResource("BoxMesh_blmu4")
-
 [node name="RightAnkleTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002480]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0.08, 0)
 
-[node name="RightAnkleTracker" type="MeshInstance3D" parent="XROrigin3D/StaticSkeleton/RightAnkleTracker" unique_id=411002481]
-mesh = SubResource("BoxMesh_blmu4")
+[node name="RightFootTracker" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=411002420]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0, 0)
+
+[node name="SkeletonDebug" type="Node3D" parent="XROrigin3D/StaticSkeleton" unique_id=698008164 node_paths=PackedStringArray("skeleton")]
+script = ExtResource("4_debug")
+skeleton = NodePath("..")
+joint_material = SubResource("StandardMaterial3D_joint")
+bone_material = SubResource("StandardMaterial3D_bone")
+
+[node name="PhysicalSkeleton" type="Node3D" parent="XROrigin3D" unique_id=717073445]

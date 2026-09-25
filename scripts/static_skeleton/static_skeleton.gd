@@ -14,6 +14,9 @@ extends Node3D
 
 ## Solve before anything that consumes the skeleton.
 const SOLVE_PRIORITY := -90
+## How steeply a facing may pitch, as the vertical share of its forward, before
+## it is too steep to flatten and its up axis stands in for it. 0.75 is about
+## 49 degrees above or below level.
 const ELEVATION_LIMIT := 0.75
 ## Below this, the hands are too close together to indicate a shoulder line.
 const MIN_SHOULDER_SPAN := 0.05
@@ -21,6 +24,33 @@ const MIN_SHOULDER_SPAN := 0.05
 const FULL_SHOULDER_SPAN := 0.35
 ## Below this the body is standing still and has no direction of travel.
 const MIN_TRAVEL_SPEED := 0.05
+
+enum Finger { THUMB, INDEX, MIDDLE, RING, LITTLE }
+## The three bones of a finger, root to tip. For the thumb they are the
+## metacarpal, proximal and distal; for the others proximal, middle and distal.
+enum Phalanx { ROOT, MIDDLE, TIP }
+const FINGER_NAMES := ["Thumb", "Index", "Middle", "Ring", "Little"]
+const PHALANX_NAMES := ["Proximal", "Middle", "Distal"]
+const THUMB_PHALANX_NAMES := ["Metacarpal", "Proximal", "Distal"]
+## An average adult hand, in metres, for `hand_scale` 1. Where each finger's
+## root joint sits relative to the palm centre, as forward, toward the thumb
+## side, and toward the palm; then the length of each of its three bones; then
+## how far the finger fans toward the thumb side at rest, in degrees.
+const FINGER_ROOTS: Array[Vector3] = [
+	Vector3(-0.015, 0.035, 0.010),
+	Vector3(0.045, 0.027, 0.0),
+	Vector3(0.050, 0.009, 0.0),
+	Vector3(0.047, -0.009, 0.0),
+	Vector3(0.040, -0.027, 0.0),
+]
+const FINGER_LENGTHS: Array[Vector3] = [
+	Vector3(0.046, 0.032, 0.026),
+	Vector3(0.043, 0.025, 0.022),
+	Vector3(0.046, 0.029, 0.024),
+	Vector3(0.043, 0.027, 0.023),
+	Vector3(0.035, 0.019, 0.020),
+]
+const FINGER_SPREADS: Array[float] = [0.0, 6.0, 0.0, -5.0, -12.0]
 
 
 ## What one foot remembers between frames.
@@ -33,20 +63,25 @@ const MIN_TRAVEL_SPEED := 0.05
 ## A step here has two separate decisions rather than one. Lifting happens as
 ## soon as the body leaves its base of support, which is what makes it feel
 ## responsive. Where the foot comes down is not decided then, and is not
-## predicted: it is worked out afresh every frame and settled only at the
-## moment something says to land. Nothing is scheduled, so there is nothing to
-## overshoot when you stop.
+## predicted: it is worked out afresh every frame, and the foot lands by
+## arriving - the moment it reaches its target with no height left, it is
+## planted. Nothing schedules a landing, so there is nothing to overshoot
+## when you stop.
 class Foot:
 	## The live sole transform - resting when planted, moving when not.
 	var sole := Transform3D.IDENTITY
 	## Where this step began, for shaping the arc.
 	var lift_from := Transform3D.IDENTITY
-	## Where it is heading right now. Re-derived every frame until committed.
+	## Where it is heading right now. Re-derived every frame, all the way down.
 	var target := Transform3D.IDENTITY
 	var airborne := false
-	## Set once a landing has been called for. The target stops chasing and the
-	## foot is simply put down.
-	var committed := false
+	## Set once the step has been told it is over. It does not put the foot
+	## down - only arriving does that - but once the body has stopped it takes
+	## the target out from ahead of the hips and puts it underneath them, which
+	## is what turns a stride's last step into a foot coming home. While the
+	## body is still moving it changes nothing: the target reaching ahead is
+	## what carries the foot in.
+	var settling := false
 	## Which way the body was going when this foot left the ground, so that a
 	## change of mind can be recognised.
 	var travel := Vector3.ZERO
@@ -54,6 +89,9 @@ class Foot:
 	## Height above the floor, rate limited so that a target snapping closer
 	## cannot snap the foot down with it.
 	var height := 0.0
+	## Set whenever the sole is written, so the tracker is only touched on ticks
+	## the foot actually went somewhere. A planted foot is the common case.
+	var moved := false
 
 @export_group("Measured")
 @export var hmd: XRCamera3D
@@ -106,14 +144,57 @@ class Foot:
 ## Controller pose to the centre of the palm, in pose-local space. Zero is
 ## often correct on a palm pose; anything you add here is compensating for how
 ## your controller sits in your hand.
-@export var hand_offset := Vector3(0.025, -0.05, 0)
+@export var hand_offset := Vector3(0.025, -0.05, .05)
 ## Rotation from the controller's pose to a natural hand orientation, in
 ## degrees. A grip pose sits rotated relative to the hand it is held in:
 ## roughly -60 on X for Meta Touch, -40 for Pico, -45 as a generic start.
 ## Applied identically to both hands - only the translation mirrors.
 @export var hand_rotation_degrees := Vector3(-15.0, 0.0, 0.0)
 ## Palm centre back to the wrist joint, in hand-local space.
-@export var wrist_offset := Vector3(0.0, 0.0, 0.08)
+@export var wrist_offset := Vector3(0.0, 0.0, 0.05)
+
+@export_group("Fingers")
+## Fingers are the one place the trackers form a hierarchy rather than a flat
+## set. A finger is a chain hanging off the hand, its pose is a set of joint
+## angles, and a child transform is exactly that - so each joint is a child of
+## the one before it and the root joints are children of the hand tracker.
+## They are built at startup, named after the hand, finger and bone, and are
+## reached through `finger_joint()`. Nothing moves them yet: this is the
+## relaxed pose, and input will one day set the joints' angles. They are bare
+## nodes; SkeletonDebug draws them along with everything else.
+##
+## Everything below is in hand space, which the hand solve has already put in
+## a natural orientation: -Z runs from the wrist out along the fingers, and
+## the two axes across it are named here because OpenXR does not fix which is
+## which on this hardware. Mirrored on X for the left hand, as every offset in
+## hand space is.
+##
+## Which way the palm faces. Fingers curl toward it.
+@export var palm_direction := Vector3(-1.0, 0.0, 0.0)
+## Across the hand toward the thumb. Not mirrored: with the palm axis flipped
+## between hands, the same axis is the thumb side on both.
+@export var thumb_direction := Vector3(0.0, 1.0, 0.0)
+## Multiplies the built-in proportions, for a bigger or smaller hand.
+@export var hand_scale := 1.0
+## How far each joint of a finger bends toward the palm, root to tip, with
+## the hand open and with it closed. The grip closes the thumb, middle, ring
+## and little fingers and the trigger the index, each as far as it is pulled.
+@export var finger_curl_degrees := Vector3(20.0, 30.0, 15.0)
+@export var finger_closed_degrees := Vector3(85.0, 100.0, 70.0)
+## The thumb's rest pose: how far it fans out toward its own side, how far it
+## turns about its own length so that its nail faces sideways rather than
+## up, and how far each of its joints bends open and closed.
+@export var thumb_spread_degrees := 50.0
+@export var thumb_roll_degrees := 70.0
+@export var thumb_curl_degrees := Vector3(20.0, 15.0, 15.0)
+@export var thumb_closed_degrees := Vector3(45.0, 50.0, 60.0)
+## How quickly the fingers follow the grip and trigger. A rate rather than a
+## step, so a snatched trigger still closes the hand in a few frames while a
+## slow squeeze is followed exactly.
+@export var finger_curl_smoothing := 25.0
+## The controller actions read for the grip and the trigger, as analog values.
+@export var grip_action := &"grip"
+@export var trigger_action := &"trigger"
 
 @export_group("Torso")
 ## Neck base down to the centre of the chest.
@@ -128,6 +209,15 @@ class Foot:
 ## rejected. Without this a rejected reading freezes the chest, and a frozen
 ## chest can never come back into agreement - the gate becomes a trap.
 @export var torso_recovery_rate := 3.0
+## A hand folded in across the body says nothing about which way the chest
+## faces: a hand on the chest, or crossing close in front of it, is placed by
+## the arm bending, not the chest turning. Such a hand is ignored by the chest
+## entirely, which listens to the head instead. "Across" is at or past the
+## body's midline toward the other side. "Close" is measured from the chest's
+## outline - as wide as the shoulders, and this deep from the axis to the
+## front - and a hand this far off it is reaching, and trusted in full.
+@export var chest_depth := 0.10
+@export var hand_clear_distance := 0.08
 ## How far the head may twist before it drags the chest around with it.
 @export var max_head_twist_degrees := 80.0
 ## Chest centre down to the pelvis.
@@ -240,6 +330,26 @@ class Foot:
 ## end, which is where the resolution is wanted.
 @export_range(0.1, 2.0) var stride_exponent := 0.7
 
+@export_subgroup("Striding")
+## Walking on the stick is not walking in a room. The body is carried at a
+## speed it was told, in a direction it was told, and the feet know both
+## rather than inferring them from a pelvis - so while locomotion is driving,
+## the feet stride: strides sized from the commanded speed over this range,
+## each foot lifting once it has fallen a full stride behind, in the
+## commanded direction whichever way that is. Sidestepping, a foot is let
+## across the midline, and passes the planted foot this far in front of it,
+## or behind it when negative. With the stick idle the room's gait takes
+## over again as if nothing had happened.
+@export var stride_min_length := 0.15
+@export var stride_max_length := 0.8
+@export var stride_reference_speed := 3.0
+@export var stride_cross_offset := 0.12
+## How far beyond its length a leg may reach in a stride, where 1 is bone
+## straight. A walker's ankle extends at push-off and heel strike and the
+## hips dip between, and neither is measured here, so the shin stretches to
+## stand in for both. Strides are sized to fit inside this.
+@export var stride_leg_stretch := 1.1
+
 @export_subgroup("Prediction")
 ## The most speed that may be used to lead a step, and how much of it to use.
 ## Their product is a hard ceiling on how far ahead of you anything can aim -
@@ -251,28 +361,51 @@ class Foot:
 @export var max_prediction_speed := 0.4
 @export_range(0.0, 1.0) var prediction_factor := 0.4
 
-@export_subgroup("Landing")
-## How far a standing leg may be extended before the airborne foot has to come
-## down, where 1 is bone straight. This is the gait's clock, and it is the only
-## trigger here that is not a tuned proxy - it is the actual constraint, so it
-## needs no step-period arithmetic and it gets crouching right for free.
+@export_subgroup("Settling")
+## When a step is told it is over. None of these puts the foot down: a foot
+## lands by arriving at its target, and these decide when the target stops
+## reaching ahead of a body that has stopped - see Foot.settling. While the
+## body is still moving they change nothing.
+##
+## How far a standing leg may be extended before the step is over, where 1 is
+## bone straight. The one trigger here that is not a judgement about what the
+## body is doing: the leg physically has nothing left, so it overrides the
+## minimum air time, and it gets crouching right for free.
 @export_range(0.5, 1.0) var max_leg_stretch := 0.99
-## Below this the body has stopped and the foot goes down where it stands.
+## Below this the body has stopped, and a settling foot comes home under the
+## hips rather than out ahead of them.
 @export var stop_speed := 0.12
 ## How far travel must turn from where it was heading at lift-off before the
-## step is abandoned. -1 is a full reversal, 0 a right angle.
+## step is over. -1 is a full reversal, 0 a right angle.
 @export_range(-1.0, 1.0) var reversal_dot := 0.2
-## A foot may not hang in the air longer than this whatever else is true.
+## After this long in the air a step is over whatever else is true.
 @export var max_airtime := 0.45
-## Nor may it come down sooner than this. Every landing reason except running
-## out of reach is a judgement about what the body is doing, and all of them can
-## be true the instant a foot leaves the ground - so without a floor here a step
-## begins and ends in one frame and the gait becomes a vibration.
+## Nor may it be over sooner than this. Every reason except running out of
+## reach is a judgement about what the body is doing, and all of them can be
+## true the instant a foot leaves the ground - so without a floor here a foot
+## lifting as the body stops comes straight back down where it was.
 @export var min_airtime := 0.10
 ## And the next foot may not leave before this. One foot landing usually means
 ## the other is now the one out of place, so this is what stops the pair
 ## trading places every frame.
 @export var min_support_time := 0.06
+
+@export_subgroup("In the air")
+## How straight the legs hang when the body is off the ground, 1 being bone
+## straight. Feet in the air do not step: there is nothing to step on.
+@export var hang_extension := 0.95
+## How long the body must have been off the ground before the feet give up
+## on it and hang. The edge of a stair reads as air for a few ticks on the
+## way over it, and feet that dropped for those would flicker.
+@export var airborne_grace := 0.1
+## How far above and below the rig's floor the ground is looked for when a
+## foot is placed. Stairs and slopes within a stride never leave this band.
+@export var ground_search := 1.0
+## How far below the floor the other foot stands on a foot may be set down.
+## Ground further down than that is the bottom of a drop, not somewhere to
+## step: the foot goes to the edge instead, and stays on the floor it has
+## until the body actually falls.
+@export var foot_drop_limit := 0.3
 
 @export_subgroup("Motion")
 ## How fast a foot travels over the ground when the body is still.
@@ -286,6 +419,15 @@ class Foot:
 @export_range(1.5, 6.0) var swing_speed_ratio := 3.2
 ## Peak lift of a full-length step. Shorter steps lift proportionally less.
 @export var step_height := 0.07
+## How fast a foot turns toward its new facing while in the air, in degrees
+## per second. Without a rate the facing would snap the instant a foot lifted,
+## which a step that is mostly a turn shows as a pivot on the floor.
+@export var swing_turn_speed := 300.0
+## How far the toes travel per radian of turn - the length of the foot, near
+## enough. A turn is folded into the step as that distance, so a turning step
+## takes its time and lifts like the short step it is, rather than a pivot
+## with no lift at all.
+@export var turn_lift_radius := 0.25
 ## How fast a foot may rise or fall. Rate limiting matters because the target
 ## can jump closer the instant a landing is called for, and without this the
 ## arc would collapse in one frame.
@@ -346,16 +488,65 @@ class Foot:
 var left_arm_twist := 0.0
 var right_arm_twist := 0.0
 
+# The finger joints, [finger][phalanx], for each hand. Built once at startup.
+var _left_fingers: Array = []
+var _right_fingers: Array = []
+# Each joint's frame before it bends, [finger][phalanx], so the bend can be
+# set fresh each tick rather than accumulated.
+var _left_finger_frames: Array = []
+var _right_finger_frames: Array = []
+# The smoothed grip and trigger of each hand, 0 open to 1 closed, and the
+# pair last written to the joints, so a hand that has not moved costs no
+# transform writes at all.
+var _left_grip := 0.0
+var _left_trigger := 0.0
+var _right_grip := 0.0
+var _right_trigger := 0.0
+var _left_applied := Vector2(-1.0, -1.0)
+var _right_applied := Vector2(-1.0, -1.0)
+
+# Whether each hand's pose is current. A hand that has lost tracking keeps its
+# last pose so the arm still draws, but a pose that is no longer being measured
+# says nothing about where the body is, so the chest stops listening to it.
+var _left_hand_tracked := false
+var _right_hand_tracked := false
+
 # The chest's facing persists between frames. Unlike every tracker above it, the
 # torso is not a pure function of the current pose - it has memory, which is
 # what lets a small head turn leave it alone and a large one drag it round.
 var _torso_forward := Vector3.FORWARD
+
+# The chest's frame as solved this tick, and its inverse. Everything hung off
+# the chest works in this frame, so it is inverted once here rather than by
+# every arm solve in turn. The transpose is the inverse of a rotation.
+var _torso_basis := Basis.IDENTITY
+var _to_torso := Basis.IDENTITY
+
+# The floor, read once a tick.
+var _ground := 0.0
 
 # How much of its length each leg is spanning, 1 being bone straight. Exposed
 # because the bone lengths cannot be eyeballed, and because the standing leg's
 # value is what calls the airborne foot down.
 var left_leg_extension := 0.0
 var right_leg_extension := 0.0
+
+## What locomotion is doing to the body this tick: the speed and direction it
+## is being carried at over the ground, in world space, or zero when nothing
+## is driving it. Set by the physical layer before the skeleton solves. This
+## is the one thing the static layer takes from the layer below it, and it
+## is intent rather than measurement: the feet cannot stride toward where the
+## body is going without being told where that is.
+var commanded_travel := Vector3.ZERO
+## Whether the body is standing on anything, from the physical layer. In the
+## air the feet hang under the hips instead of looking for somewhere to land,
+## and the tick the body is grounded again both feet come down where they are.
+var body_grounded := true
+## How the physical layer answers "where is the floor here": a callable taking
+## the top and bottom of a vertical line and returning a Dictionary with
+## `position` and `normal`, empty when nothing is there. Left unset, the floor
+## is the rig's own plane, as it was before there was a world to ask.
+var ground_probe: Callable
 
 # The point the feet stand under: where the pelvis would hang from the neck
 # with the spine straight down. In a crouch the spine leans and the pelvis
@@ -368,6 +559,12 @@ var _left_foot := Foot.new()
 var _right_foot := Foot.new()
 var _feet_placed := false
 var _pelvis_velocity := Vector3.ZERO
+# What the velocity says this tick, worked out once when it is measured: how
+# fast, which way (or nothing, when not going anywhere), and how far ahead of
+# the body a placement may lead.
+var _speed := 0.0
+var _travel := Vector3.ZERO
+var _lead := Vector3.ZERO
 var _pace := 0.0
 var _since_land := 0.0
 # The pelvis' frame, standing upright and facing where the hips face. Every
@@ -376,6 +573,12 @@ var _since_land := 0.0
 var _upright := Basis.IDENTITY
 var _to_local := Basis.IDENTITY
 var _previous_pelvis_position := Vector3.ZERO
+var _was_grounded := true
+var _airborne_for := 0.0
+# Where this whole node was last tick. The feet are remembered in the world
+# but their trackers hang off the rig, and when locomotion carries the rig a
+# planted foot's tracker would be carried with it unless put back.
+var _carriage := Transform3D.IDENTITY
 
 
 func _ready() -> void:
@@ -387,14 +590,23 @@ func _ready() -> void:
 	if eye_tracker == null:
 		push_error("StaticSkeleton: no eye tracker assigned.")
 
+	_left_fingers = _build_fingers(left_hand_tracker, true, _left_finger_frames)
+	_right_fingers = _build_fingers(right_hand_tracker, false, _right_finger_frames)
+	_pose_fingers(true)
+	_pose_fingers(false)
+
 
 ## Solves the skeleton top-down. Order matters: each tracker may only read
 ## trackers solved above it.
 func _physics_process(delta: float) -> void:
+	_ground = _ground_height()
+	if head_tracker != null:
+		_ground = _floor_at(head_tracker.global_position).position.y
 	_solve_eyes()
 	_solve_head()
 	_solve_neck()
 	_solve_hands()
+	_solve_fingers(delta)
 	_solve_torso(delta)
 	_solve_shoulders()
 	_solve_elbows()
@@ -435,7 +647,7 @@ func _solve_neck() -> void:
 
 	# Head orientation relative to that frame, scaled per axis. Yaw stays at
 	# zero because `upright` already carries the neck's share of the twist.
-	var euler := (upright.inverse() * head_basis).get_euler()
+	var euler := (upright.transposed() * head_basis).get_euler()
 	var neck_basis := upright * Basis.from_euler(
 		Vector3(euler.x * neck_follow_pitch, 0.0, euler.z * neck_follow_roll))
 
@@ -454,22 +666,24 @@ func _solve_hands() -> void:
 ## one hand and into it on the other, so a shared offset needs flipping.
 ##
 ## Nothing is written when the controller is not tracking - a stale pose is far
-## less misleading than a tracker snapping to the origin.
+## less misleading than a tracker snapping to the origin. It is marked as
+## stale, though, so nothing above the arm reasons from it.
 func _solve_hand(
 		controller: XRController3D,
 		hand: Node3D,
 		wrist: Node3D,
 		is_left: bool) -> void:
-	if controller == null or hand == null:
-		return
-	if not controller.get_has_tracking_data():
+	var tracked := controller != null and hand != null \
+			and controller.get_has_tracking_data()
+	if is_left:
+		_left_hand_tracked = tracked
+	else:
+		_right_hand_tracked = tracked
+	if not tracked:
 		return
 
-	var to_palm := hand_offset
-	var to_wrist := wrist_offset
-	if is_left:
-		to_palm.x = -to_palm.x
-		to_wrist.x = -to_wrist.x
+	var to_palm := _mirrored(hand_offset, is_left)
+	var to_wrist := _mirrored(wrist_offset, is_left)
 
 	# Translate within the controller's pose frame, then rotate the result into
 	# a natural hand orientation. The wrist offset below is therefore expressed
@@ -495,8 +709,12 @@ func _solve_torso(delta: float) -> void:
 
 	# 1. Drift toward the hands, weighted by how much they can be trusted.
 	#    `rejected` is how much of a usable reading is being thrown away, which
-	#    is different from having no reading at all.
-	var rejected := 0.0
+	#    is different from having no reading at all. A hand held in against the
+	#    body is thrown away outright: whatever the hands say then is the arm's
+	#    doing, and the head is the only reading left worth following.
+	var nearness := maxf(_hand_nearness(left_wrist_tracker, _left_hand_tracked, true),
+			_hand_nearness(right_wrist_tracker, _right_hand_tracked, false))
+	var rejected := nearness
 	var tangent := _shoulder_tangent()
 	var span := tangent.length()
 	if span >= MIN_SHOULDER_SPAN:
@@ -512,17 +730,18 @@ func _solve_torso(delta: float) -> void:
 		# false in that pose, so fade the reading out as it diverges from where
 		# the chest already points: full trust within 60 degrees, none past 90.
 		var agreement := smoothstep(0.0, 0.5, hands_forward.dot(_torso_forward))
-		rejected = 1.0 - agreement
+		rejected = maxf(rejected, 1.0 - agreement)
 
-		var weight := 1.0 - exp(-torso_yaw_smoothing
-			* hands_steer_torso * confidence * agreement * delta)
+		var weight := 1.0 - exp(-torso_yaw_smoothing * hands_steer_torso
+			* confidence * agreement * (1.0 - nearness) * delta)
 		_torso_forward = _torso_forward.slerp(hands_forward, weight)
 
 	# 2. While a reading is being rejected, fall back under the head. This is
 	#    the way out of the deadlock where the chest lags a fast turn far enough
 	#    that the reading is discarded, leaving nothing able to close the gap.
 	#    Hands simply being too close together is not a rejection - there is no
-	#    disagreement to escape, so the chest holds instead.
+	#    disagreement to escape, so the chest holds instead. A hand in against
+	#    the body is one, and the chest comes back under the head.
 	if rejected > 0.0:
 		_torso_forward = _torso_forward.slerp(
 			head_forward, 1.0 - exp(-torso_recovery_rate * rejected * delta))
@@ -533,7 +752,7 @@ func _solve_torso(delta: float) -> void:
 	# 4. Tilt cascades down from the neck, reduced again.
 	var neck_basis := neck_tracker.global_basis
 	var neck_upright := Basis.looking_at(_flatten_facing(neck_basis), Vector3.UP)
-	var neck_tilt := (neck_upright.inverse() * neck_basis).get_euler()
+	var neck_tilt := (neck_upright.transposed() * neck_basis).get_euler()
 	var tilt := Basis.from_euler(
 		Vector3(neck_tilt.x * torso_follow_tilt, 0.0, neck_tilt.z * torso_follow_tilt))
 
@@ -546,10 +765,11 @@ func _solve_torso(delta: float) -> void:
 	# 6. Crouching, the spine hinges forward from the neck so the hips can sit
 	#    back behind the feet. Applied to the finished facing: it is a lean,
 	#    not a turn, and the facing remembers nothing of it.
-	var torso_basis := _crouch_lean(Basis.looking_at(_torso_forward, Vector3.UP) * tilt)
+	_torso_basis = _crouch_lean(Basis.looking_at(_torso_forward, Vector3.UP) * tilt)
+	_to_torso = _torso_basis.transposed()
 	torso_tracker.global_transform = Transform3D(
-		torso_basis,
-		neck_tracker.global_position - torso_basis.y * torso_length)
+		_torso_basis,
+		neck_tracker.global_position - _torso_basis.y * torso_length)
 
 
 ## Leans the spine forward from the neck by however much puts the pelvis its
@@ -567,7 +787,7 @@ func _crouch_lean(torso_basis: Basis) -> Basis:
 	_balance_point = neck_tracker.global_position - torso_basis.y * spine
 
 	var socket_height := (_balance_point + torso_basis * hip_offset).y \
-			- (_ground_height() + ankle_height)
+			- (_ground + ankle_height)
 	var sunk := thigh_length + shin_length - socket_height
 	var setback := crouch_setback * smoothstep(
 			crouch_setback_start, crouch_setback_depth, sunk)
@@ -582,7 +802,8 @@ func _crouch_lean(torso_basis: Basis) -> Basis:
 ## The shoulder line the hands imply, flattened. Length carries how far apart
 ## they are, which is how much the direction can be trusted.
 func _shoulder_tangent() -> Vector3:
-	if left_hand_tracker == null or right_hand_tracker == null:
+	if left_hand_tracker == null or right_hand_tracker == null \
+			or not (_left_hand_tracked and _right_hand_tracked):
 		return Vector3.ZERO
 	var tangent := right_hand_tracker.global_position - left_hand_tracker.global_position
 	return tangent.slide(Vector3.UP)
@@ -616,9 +837,14 @@ func _constrain_reach(torso_forward: Vector3, tilt: Basis) -> Vector3:
 		return torso_forward
 
 	var torso_basis := Basis.looking_at(torso_forward, Vector3.UP) * tilt
+	var to_torso := torso_basis.transposed()
 	var centre := neck_tracker.global_position - torso_basis.y * torso_length
-	var right := _reach_excess(right_wrist_tracker, centre, torso_basis, false)
-	var left := _reach_excess(left_wrist_tracker, centre, torso_basis, true)
+	var right := _reach_excess(
+			right_wrist_tracker if _right_hand_tracked else null, centre, to_torso, false,
+			_hand_nearness(right_wrist_tracker, _right_hand_tracked, false))
+	var left := _reach_excess(
+			left_wrist_tracker if _left_hand_tracked else null, centre, to_torso, true,
+			_hand_nearness(left_wrist_tracker, _left_hand_tracked, true))
 	if right <= 0.0 and left <= 0.0:
 		return torso_forward
 
@@ -649,18 +875,19 @@ func _constrain_reach(torso_forward: Vector3, tilt: Basis) -> Vector3:
 ##
 ## Only the front is guarded. A hand behind the shoulder line is reaching
 ## round the back, where the elbow-back solve is right and the existing clamp
-## holds, so it has nothing to ask of the chest.
+## holds, so it has nothing to ask of the chest. Nor does a hand in against
+## the body: `nearness` opens the limit out to nothing, as being near vertical
+## does, and leaves that hand to the arm.
 func _reach_excess(
 		wrist: Node3D,
 		centre: Vector3,
-		torso_basis: Basis,
-		is_left: bool) -> float:
+		to_torso: Basis,
+		is_left: bool,
+		nearness: float) -> float:
 	if wrist == null:
 		return -INF
 
-	var local := torso_basis.inverse() * (wrist.global_position - centre)
-	if is_left:
-		local.x = -local.x
+	var local := _mirrored(to_torso * (wrist.global_position - centre), is_left)
 	if local.z > 0.0:
 		return -INF
 
@@ -685,8 +912,29 @@ func _reach_excess(
 
 	var height := local.y - shoulder_offset.y
 	var horizontality := radius / sqrt(radius * radius + height * height)
-	limit = lerpf(limit, PI, 1.0 - horizontality)
-	return bearing - limit
+	return bearing - lerpf(_widened(limit, horizontality), PI, nearness)
+
+
+## How far a hand is folded in across the body: 1 for a wrist at the midline
+## or past it and lying against the chest, 0 for one out on its own side or
+## held off the body. The wrist rather than the palm, because it is the
+## forearm that lies across a chest. Taken in last tick's chest frame - the
+## chest solves after this is read, and a tick's staleness is invisible. An
+## untracked hand is nowhere, and counts as clear.
+func _hand_nearness(wrist: Node3D, tracked: bool, is_left: bool) -> float:
+	if wrist == null or not tracked or torso_tracker == null:
+		return 0.0
+	var local := _mirrored(
+			_to_torso * (wrist.global_position - torso_tracker.global_position), is_left)
+	# X is the hand's own side; a hand fades out of "across" over the inner
+	# half of the shoulder's reach.
+	var across := 1.0 - smoothstep(0.0, shoulder_offset.x * 0.5, local.x)
+	# How far outside the chest's outline the wrist is, taking the chest as a
+	# box as wide as the shoulders and `chest_depth` deep either way.
+	var outside := Vector2(
+			maxf(absf(local.x) - shoulder_offset.x, 0.0),
+			maxf(absf(local.z) - chest_depth, 0.0)).length()
+	return across * (1.0 - smoothstep(0.0, hand_clear_distance, outside))
 
 
 ## Both shoulders.
@@ -706,18 +954,14 @@ func _solve_shoulder(shoulder: Node3D, wrist: Node3D, is_left: bool) -> void:
 	if torso_tracker == null or shoulder == null:
 		return
 
-	var offset := shoulder_offset
-	if is_left:
-		offset.x = -offset.x
-
-	var torso_basis := torso_tracker.global_basis
-	var shoulder_position := torso_tracker.global_position + torso_basis * offset
-	var shoulder_basis := torso_basis
+	var shoulder_position := torso_tracker.global_position \
+			+ _torso_basis * _mirrored(shoulder_offset, is_left)
+	var shoulder_basis := _torso_basis
 
 	if wrist != null:
 		var to_wrist := wrist.global_position - shoulder_position
 		if not to_wrist.is_zero_approx():
-			shoulder_basis = _look_along(to_wrist.normalized(), torso_basis)
+			shoulder_basis = _look_along(to_wrist.normalized(), _torso_basis)
 
 	shoulder.global_transform = Transform3D(shoulder_basis, shoulder_position)
 
@@ -748,7 +992,6 @@ func _solve_elbow(
 	if shoulder == null or elbow == null or wrist == null or torso_tracker == null:
 		return
 
-	var torso_basis := torso_tracker.global_basis
 	var origin := shoulder.global_position
 	var to_wrist := wrist.global_position - origin
 	var chord := to_wrist.length()
@@ -758,29 +1001,18 @@ func _solve_elbow(
 
 	# The hint, projected into the plane the elbow circle lies in. A hint
 	# parallel to the arm says nothing about which way round the circle to go.
-	var hint := _elbow_hint_for(origin, wrist, is_left, torso_basis)
-	if is_left:
-		hint.x = -hint.x
-	var pole := (torso_basis * hint).slide(axis)
+	var hint := _mirrored(_elbow_hint_for(origin, wrist, is_left), is_left)
+	var pole := (_torso_basis * hint).slide(axis)
 	if pole.is_zero_approx():
-		pole = (torso_basis * Vector3.DOWN).slide(axis)
+		pole = (_torso_basis * Vector3.DOWN).slide(axis)
 		if pole.is_zero_approx():
 			return
 	pole = pole.normalized()
 
-	# Law of cosines: how far along the chord the circle sits, and its radius.
 	# A chord longer than both bones together means the arm cannot reach, the
 	# circle collapses to a point, and the arm straightens.
-	var elbow_position: Vector3
-	if chord >= upper_arm_length + forearm_length:
-		elbow_position = origin + axis * upper_arm_length
-	else:
-		var along := (upper_arm_length * upper_arm_length
-				- forearm_length * forearm_length
-				+ chord * chord) / (2.0 * chord)
-		var radius := sqrt(maxf(
-				upper_arm_length * upper_arm_length - along * along, 0.0))
-		elbow_position = origin + axis * along + pole * radius
+	var elbow_position := _bend(
+			origin, axis, chord, pole, upper_arm_length, forearm_length)
 
 	# Clamp the upper arm into a reachable direction. When the wrist demands
 	# more than that, the forearm stretches instead of the elbow jumping to a
@@ -796,9 +1028,11 @@ func _solve_elbow(
 		return
 	var forearm_axis := to_hand.normalized()
 
-	# The elbow is a hinge. It has no roll axis, so it carries none of the
-	# twist - its orientation comes purely from the arm's geometry.
-	var elbow_basis := _look_along(forearm_axis, torso_basis)
+	# The elbow is a hinge and carries none of the twist. Its roll is still
+	# taken from the chest, the way _look_along gives it, rather than from the
+	# bend the way the knee's now is - so it turns with the chest, and flips
+	# its reference near a hanging arm. That is a change still to make.
+	var elbow_basis := _look_along(forearm_axis, _torso_basis)
 	elbow.global_transform = Transform3D(elbow_basis, elbow_position)
 
 	# Stage one: measure the hand's roll and spend it all on the forearm. Roll
@@ -833,7 +1067,7 @@ func _solve_elbow(
 	var to_elbow := elbow_position - origin
 	if not to_elbow.is_zero_approx():
 		var upper_arm_axis := to_elbow.normalized()
-		shoulder.global_basis = _look_along(upper_arm_axis, torso_basis).rotated(
+		shoulder.global_basis = _look_along(upper_arm_axis, _torso_basis).rotated(
 				upper_arm_axis, shoulder_share)
 
 
@@ -847,17 +1081,13 @@ func _solve_elbow(
 func _elbow_hint_for(
 		shoulder_position: Vector3,
 		wrist: Node3D,
-		is_left: bool,
-		torso_basis: Basis) -> Vector3:
-	var to_torso := torso_basis.inverse()
-	var offset := to_torso * (wrist.global_position - shoulder_position)
+		is_left: bool) -> Vector3:
+	var offset := _mirrored(
+			_to_torso * (wrist.global_position - shoulder_position), is_left)
 	# Which way the wrist faces, as opposed to where it is. The sign is settled
 	# by observation rather than by the grip pose's documented axes: +Z is what
 	# actually reads as outward and forward on this hardware.
-	var aim := to_torso * wrist.global_basis.z
-	if is_left:
-		offset.x = -offset.x
-		aim.x = -aim.x
+	var aim := _mirrored(_to_torso * wrist.global_basis.z, is_left)
 
 	var hint := elbow_pole_hint
 
@@ -902,10 +1132,7 @@ func _clamp_upper_arm(direction: Vector3, is_left: bool) -> Vector3:
 	if torso_tracker == null:
 		return direction
 
-	var torso_basis := torso_tracker.global_basis
-	var local := torso_basis.inverse() * direction
-	if is_left:
-		local.x = -local.x
+	var local := _mirrored(_to_torso * direction, is_left)
 
 	# X is outward, Z is backward. How much of the arm lies in that plane is
 	# also how meaningful its horizontal direction is.
@@ -918,9 +1145,8 @@ func _clamp_upper_arm(direction: Vector3, is_left: bool) -> Vector3:
 	var azimuth := atan2(horizontal.y, horizontal.x)
 
 	# Both limits open out to unrestricted as the arm nears vertical.
-	var widen := 1.0 - horizontality
-	var forward_limit := lerpf(deg_to_rad(shoulder_limit_forward), PI, widen)
-	var backward_limit := lerpf(deg_to_rad(shoulder_limit_backward), PI, widen)
+	var forward_limit := _widened(deg_to_rad(shoulder_limit_forward), horizontality)
+	var backward_limit := _widened(deg_to_rad(shoulder_limit_backward), horizontality)
 	var clamped := clampf(azimuth, -forward_limit, backward_limit)
 	if is_equal_approx(clamped, azimuth):
 		return direction
@@ -929,10 +1155,47 @@ func _clamp_upper_arm(direction: Vector3, is_left: bool) -> Vector3:
 	# around the body rather than dropping.
 	var swung := Vector2(cos(clamped), sin(clamped)) * horizontality
 	local = Vector3(swung.x, local.y, swung.y).normalized()
+	return _torso_basis * _mirrored(local, is_left)
 
+
+## Two-bone IK, shared by arm and leg. Both ends of the limb are known and the
+## bones are fixed, which pins the middle joint to a circle around the chord
+## between them; the pole picks the point on it. Law of cosines: how far along
+## the chord the circle sits, and its radius.
+##
+## The circle only exists between two limits. A chord longer than both bones
+## together cannot be spanned; one shorter than their difference cannot be
+## folded down to, since the longer bone overshoots the target on its own.
+## Past either limit the first bone lies along the chord and the second is
+## left to stretch or fold back - honest about being out of range, where the
+## formula would put the joint beyond the bone's own length.
+func _bend(
+		origin: Vector3,
+		axis: Vector3,
+		chord: float,
+		pole: Vector3,
+		first: float,
+		second: float) -> Vector3:
+	if chord >= first + second or chord <= absf(first - second):
+		return origin + axis * first
+	var along := (first * first - second * second + chord * chord) / (2.0 * chord)
+	var radius := sqrt(maxf(first * first - along * along, 0.0))
+	return origin + axis * along + pole * radius
+
+
+## A limit that opens out to unrestricted as a limb nears vertical, where its
+## horizontal direction stops meaning anything. Shared by the elbow clamp and
+## the chest's reach limit, so the two agree on where the limit is.
+func _widened(limit: float, horizontality: float) -> float:
+	return lerpf(limit, PI, 1.0 - horizontality)
+
+
+## The left side of the body is the right side mirrored on X. Every offset and
+## hint is written for the right and flipped through here for the left.
+func _mirrored(vector: Vector3, is_left: bool) -> Vector3:
 	if is_left:
-		local.x = -local.x
-	return torso_basis * local
+		vector.x = -vector.x
+	return vector
 
 
 ## A basis whose -Z runs along `direction` and whose Y faces the way the joint
@@ -945,6 +1208,119 @@ func _hinge_basis(direction: Vector3, pole: Vector3) -> Basis:
 	if absf(direction.dot(up)) > 0.99:
 		up = Vector3.UP if absf(direction.dot(Vector3.UP)) <= 0.99 else Vector3.FORWARD
 	return Basis.looking_at(direction, up)
+
+
+## One finger joint. -Z runs along the bone to the next joint, as with every
+## other tracker; Y is the back of the finger, so bending toward the palm is a
+## turn about X toward -Y, and the two joints down the chain differ from the
+## root only by that turn. Null when the hand has no tracker.
+func finger_joint(is_left: bool, finger: Finger, phalanx: Phalanx) -> Node3D:
+	var fingers := _left_fingers if is_left else _right_fingers
+	if fingers.is_empty():
+		return null
+	return fingers[finger][phalanx]
+
+
+## Builds one hand's fingers under its tracker and returns them, [finger]
+## [phalanx], with each joint's unbent frame written to `frames` alongside.
+## Where the joints sit is decided once here; how far they bend is the
+## finger solve's business, every tick.
+func _build_fingers(hand: Node3D, is_left: bool, frames: Array) -> Array:
+	var fingers: Array = []
+	frames.clear()
+	if hand == null:
+		return fingers
+
+	var side := "Left" if is_left else "Right"
+	var forward := Vector3.FORWARD
+	var palm := _mirrored(palm_direction, is_left).normalized()
+	var dorsal := -palm
+	# Fanning a finger toward the thumb is a turn about the palm's normal, in
+	# whichever sense carries forward toward the thumb side on this hand.
+	var fan_axis := dorsal * signf(dorsal.cross(forward).dot(thumb_direction))
+
+	for finger in Finger.size():
+		var root_offset: Vector3 = FINGER_ROOTS[finger] * hand_scale
+		var lengths: Vector3 = FINGER_LENGTHS[finger] * hand_scale
+		var is_thumb := finger == Finger.THUMB
+		var spread := deg_to_rad(thumb_spread_degrees if is_thumb else FINGER_SPREADS[finger])
+
+		# The finger's frame at rest, before its joints bend: forward along
+		# the bone, the back of the finger up out of the back of the hand.
+		var basis := Basis.looking_at(forward, dorsal).rotated(fan_axis, spread)
+		if is_thumb:
+			# The thumb sits turned about its own length, nail to the side.
+			var bone := -basis.z
+			var roll := deg_to_rad(thumb_roll_degrees) \
+					* signf(bone.cross(basis.y).dot(thumb_direction))
+			basis = basis.rotated(bone, roll)
+
+		var position := forward * root_offset.x \
+				+ thumb_direction.normalized() * root_offset.y \
+				+ palm * root_offset.z
+		var names: Array = THUMB_PHALANX_NAMES if is_thumb else PHALANX_NAMES
+		var chain: Array = []
+		var chain_frames: Array = []
+		var parent := hand
+		for phalanx in Phalanx.size():
+			var joint := Node3D.new()
+			joint.name = side + FINGER_NAMES[finger] + names[phalanx]
+			parent.add_child(joint)
+			joint.transform = Transform3D(basis, position)
+			chain.append(joint)
+			chain_frames.append(basis)
+			# The next joint sits at the end of this bone, in this joint's frame.
+			parent = joint
+			basis = Basis.IDENTITY
+			position = forward * lengths[phalanx]
+		fingers.append(chain)
+		frames.append(chain_frames)
+	return fingers
+
+
+## Reads the grip and trigger of each hand, follows them smoothly, and bends
+## the fingers to match. A hand without a controller keeps whatever it had.
+func _solve_fingers(delta: float) -> void:
+	var blend := 1.0 - exp(-finger_curl_smoothing * delta)
+	if left_controller != null:
+		_left_grip = lerpf(_left_grip, left_controller.get_float(grip_action), blend)
+		_left_trigger = lerpf(_left_trigger, left_controller.get_float(trigger_action), blend)
+	if right_controller != null:
+		_right_grip = lerpf(_right_grip, right_controller.get_float(grip_action), blend)
+		_right_trigger = lerpf(_right_trigger, right_controller.get_float(trigger_action), blend)
+	_pose_fingers(true)
+	_pose_fingers(false)
+
+
+## Bends one hand's joints between open and closed by that hand's grip and
+## trigger: the trigger closes the index finger, the grip everything else.
+## Each joint bends the bone below it toward the palm, a turn about its own
+## X, which -Z toward -Y is the negative sense of. Skipped outright when
+## nothing has changed since the last write.
+func _pose_fingers(is_left: bool) -> void:
+	var fingers := _left_fingers if is_left else _right_fingers
+	if fingers.is_empty():
+		return
+	var amounts := Vector2(_left_grip, _left_trigger) if is_left \
+			else Vector2(_right_grip, _right_trigger)
+	if amounts.is_equal_approx(_left_applied if is_left else _right_applied):
+		return
+	if is_left:
+		_left_applied = amounts
+	else:
+		_right_applied = amounts
+
+	var frames := _left_finger_frames if is_left else _right_finger_frames
+	for finger in Finger.size():
+		var is_thumb := finger == Finger.THUMB
+		var amount := amounts.y if finger == Finger.INDEX else amounts.x
+		var open := thumb_curl_degrees if is_thumb else finger_curl_degrees
+		var closed := thumb_closed_degrees if is_thumb else finger_closed_degrees
+		var curl := open.lerp(closed, amount)
+		for phalanx in Phalanx.size():
+			var joint: Node3D = fingers[finger][phalanx]
+			joint.basis = frames[finger][phalanx] \
+					* Basis.from_euler(Vector3(-deg_to_rad(curl[phalanx]), 0.0, 0.0))
 
 
 ## A basis whose -Z runs along `direction`, using the reference's up axis as the
@@ -966,10 +1342,9 @@ func _solve_hips() -> void:
 	if torso_tracker == null or hip_tracker == null:
 		return
 
-	var torso_basis := torso_tracker.global_basis
 	hip_tracker.global_transform = Transform3D(
-		torso_basis,
-		torso_tracker.global_position - torso_basis.y * hip_distance)
+		_torso_basis,
+		torso_tracker.global_position - _torso_basis.y * hip_distance)
 
 
 ## Which way the feet face, between the two and flattened. Read from last
@@ -1002,14 +1377,10 @@ func _solve_hip_socket(hip: Node3D, is_left: bool) -> void:
 	if hip_tracker == null or hip == null:
 		return
 
-	var offset := hip_offset
-	if is_left:
-		offset.x = -offset.x
-
 	var pelvis_basis := hip_tracker.global_basis
 	hip.global_transform = Transform3D(
 			_look_along(-pelvis_basis.y, pelvis_basis),
-			hip_tracker.global_position + pelvis_basis * offset)
+			hip_tracker.global_position + pelvis_basis * _mirrored(hip_offset, is_left))
 
 
 ## Both feet.
@@ -1019,16 +1390,39 @@ func _solve_feet(delta: float) -> void:
 
 	_upright = Basis.looking_at(
 			_flatten_facing(hip_tracker.global_basis), Vector3.UP)
-	_to_local = _upright.inverse()
+	_to_local = _upright.transposed()
 
 	if not _feet_placed:
 		_feet_placed = true
 		_previous_pelvis_position = _balance_point
 		_left_foot.sole = _stance_for(true)
 		_right_foot.sole = _stance_for(false)
+		_left_foot.moved = true
+		_right_foot.moved = true
 
 	_track_pelvis(delta)
 	_since_land += delta
+
+	_airborne_for = 0.0 if body_grounded else _airborne_for + delta
+	if _airborne_for > airborne_grace:
+		_hang_foot(_left_foot, left_hip_tracker, true)
+		_hang_foot(_right_foot, right_hip_tracker, false)
+		_was_grounded = false
+		_place_feet()
+		return
+	if not _was_grounded:
+		# Landing. Both feet come down where they are, under the body.
+		_was_grounded = true
+		for is_left in [true, false]:
+			var foot := _left_foot if is_left else _right_foot
+			foot.sole = _stance_for(is_left)
+			foot.airborne = false
+			foot.settling = false
+			foot.height = 0.0
+			foot.moved = true
+		_since_land = 0.0
+		_place_feet()
+		return
 
 	var step := _step_length()
 	_advance_foot(_left_foot, true, step, delta)
@@ -1040,10 +1434,43 @@ func _solve_feet(delta: float) -> void:
 			and _since_land >= min_support_time:
 		_try_lift(step)
 
-	if left_foot_tracker != null:
-		left_foot_tracker.global_transform = _left_foot.sole
-	if right_foot_tracker != null:
-		right_foot_tracker.global_transform = _right_foot.sole
+	_place_feet()
+
+
+## A foot in the air: hanging under its hip, legs nearly straight, level and
+## facing the way the hips face, carried with the body since there is no
+## ground to stay on.
+func _hang_foot(foot: Foot, hip: Node3D, is_left: bool) -> void:
+	if hip == null:
+		return
+	var drop := (thigh_length + shin_length) * hang_extension + ankle_height
+	foot.sole = Transform3D(
+			_upright.rotated(Vector3.UP, _toe_out(is_left)),
+			hip.global_position + Vector3.DOWN * drop)
+	foot.airborne = false
+	foot.settling = false
+	foot.height = 0.0
+	foot.moved = true
+
+
+## Writes both feet to their trackers. A planted foot stays where it was put
+## in the world, so if the rig has been carried since last tick both trackers
+## need writing to stay there.
+func _place_feet() -> void:
+	var carried := not global_transform.is_equal_approx(_carriage)
+	_carriage = global_transform
+	_place_foot(left_foot_tracker, _left_foot, carried)
+	_place_foot(right_foot_tracker, _right_foot, carried)
+
+
+## Writes a foot's sole to its tracker, but only on a tick it moved or the
+## rig did. Writing a transform dirties the node and everything under it,
+## and a planted foot under a rig that stayed put has nothing new to say.
+func _place_foot(tracker: Node3D, foot: Foot, carried: bool) -> void:
+	if tracker == null or not (foot.moved or carried):
+		return
+	foot.moved = false
+	tracker.global_transform = foot.sole
 
 
 ## The pelvis' velocity, and your pace, which are not the same question.
@@ -1059,6 +1486,18 @@ func _track_pelvis(delta: float) -> void:
 				lerpf(_pace, speed, 1.0 - exp(-pace_smoothing * delta)), speed)
 	_previous_pelvis_position = position
 
+	_speed = _pelvis_velocity.length()
+	_travel = _pelvis_velocity / _speed if _speed > MIN_TRAVEL_SPEED else Vector3.ZERO
+	_lead = _pelvis_velocity.limit_length(max_prediction_speed) * prediction_factor
+	# Striding, the direction is known rather than inferred, and known now.
+	if _striding():
+		_travel = commanded_travel.slide(Vector3.UP).normalized()
+
+
+## Whether locomotion is driving the body this tick.
+func _striding() -> bool:
+	return commanded_travel.slide(Vector3.UP).length() > MIN_TRAVEL_SPEED
+
 
 ## Whether to lift a foot, and which one.
 ##
@@ -1072,42 +1511,46 @@ func _try_lift(step: float) -> void:
 	# about speed. Standing still it is the deadzone and nothing more, which is
 	# what walks both feet back underneath you when you stop. Moving, a foot is
 	# allowed to fall as far behind as the leg can still cover.
-	var moving := clampf(
-			_pelvis_velocity.length() / maxf(deadzone_speed_reference, 0.001),
-			0.0, 1.0)
+	var moving := clampf(_speed / maxf(deadzone_speed_reference, 0.001), 0.0, 1.0)
 	var allowed := lerpf(deadzone_radius, _reach_allowance(step), moving)
+	# Striding, a foot lifts once it has fallen a whole stride behind its
+	# target, which is what makes each step the stride long - or sooner, if
+	# that would leave the trailing leg reaching further than it may.
+	if _striding():
+		allowed = minf(step, 2.0 * _leg_reach(left_hip_tracker, stride_leg_stretch))
 	var turn_limit := deg_to_rad(yaw_trigger_degrees)
 
-	var lift: Foot = null
-	var lift_left := false
-	var furthest := -1.0
-
-	for is_left in [true, false]:
-		var foot := _left_foot if is_left else _right_foot
-		var distance := (_reach_target(is_left, step).origin
-				- foot.sole.origin).slide(Vector3.UP).length()
-		if distance <= allowed and _yaw_error(foot, is_left) <= turn_limit:
-			continue
-
-		# The foot with furthest to go is the one trailing the body, and that is
-		# the one you step with - you cannot lift the foot your weight is about
-		# to pass over. VRIK takes the shortest instead, but its targets sit
-		# under the body where both feet are much of a muchness; ours reach
-		# forward, so the shortest is always the front foot and picking it gives
-		# a limp: the same leg shuffling while the other one is left behind.
-		if distance > furthest:
-			furthest = distance
-			lift = foot
-			lift_left = is_left
-
-	if lift == null:
+	var left_lag := _lag(true, step, allowed, turn_limit)
+	var right_lag := _lag(false, step, allowed, turn_limit)
+	if left_lag < 0.0 and right_lag < 0.0:
 		return
 
+	# The foot with furthest to go is the one trailing the body, and that is
+	# the one you step with - you cannot lift the foot your weight is about
+	# to pass over. VRIK takes the shortest instead, but its targets sit
+	# under the body where both feet are much of a muchness; ours reach
+	# forward, so the shortest is always the front foot and picking it gives
+	# a limp: the same leg shuffling while the other one is left behind.
+	var lift_left := right_lag < 0.0 or (left_lag >= 0.0 and left_lag >= right_lag)
+	var lift := _left_foot if lift_left else _right_foot
+
 	lift.airborne = true
-	lift.committed = false
+	lift.settling = false
 	lift.airtime = 0.0
 	lift.lift_from = lift.sole
-	lift.travel = _travel_direction()
+	lift.travel = _travel
+
+
+## How far a planted foot is from where it wants to be, if that is further
+## than it is allowed to trail or the hips have turned too far away from it;
+## otherwise negative, for a foot that may stay where it is.
+func _lag(is_left: bool, step: float, allowed: float, turn_limit: float) -> float:
+	var foot := _left_foot if is_left else _right_foot
+	var distance := (_reach_target(is_left, step).origin
+			- foot.sole.origin).slide(Vector3.UP).length()
+	if distance <= allowed and _yaw_error(foot, is_left) <= turn_limit:
+		return -1.0
+	return distance
 
 
 ## How far a planted foot may sit from where it wants to be before it lifts.
@@ -1137,7 +1580,7 @@ func _leg_reach(hip: Node3D, stretch: float) -> float:
 	if hip == null:
 		return 0.0
 
-	var drop := hip.global_position.y - (_ground_height() + ankle_height)
+	var drop := hip.global_position.y - (_ground + ankle_height)
 	var limit := (thigh_length + shin_length) * stretch
 	return sqrt(maxf(limit * limit - drop * drop, 0.0))
 
@@ -1145,41 +1588,58 @@ func _leg_reach(hip: Node3D, stretch: float) -> float:
 ## Moves an airborne foot, and puts it down.
 ##
 ## The foot walks toward its target at a fixed speed rather than over a fixed
-## duration. Nothing schedules a landing, so the target is free to change under
-## it - and when a landing is called for, the target simply becomes the ground
-## beneath the hips and the foot is already most of the way there.
+## duration, and it lands when it gets there. Nothing schedules that, so the
+## target is free to change under it - and when the step is over and the body
+## has stopped, the target simply becomes the ground beneath the hips and the
+## foot is already most of the way there.
 func _advance_foot(foot: Foot, is_left: bool, step: float, delta: float) -> void:
 	if not foot.airborne:
 		return
 
 	foot.airtime += delta
-	if not foot.committed and _should_land(foot, is_left):
-		foot.committed = true
+	if not foot.settling and _should_settle(foot, is_left):
+		foot.settling = true
 
 	# A step that ends because the body stopped is not a stride any more, so it
 	# stops reaching: the foot comes down in the deadzone under the hips, and
 	# the other one is then out of place by more than the deadzone allows and
 	# follows it home on the next tick it is permitted one.
 	var aim := step
-	if foot.committed and _pelvis_velocity.length() < stop_speed:
+	if foot.settling and _speed < stop_speed:
 		aim = 0.0
 	foot.target = _reach_target(is_left, aim)
 
 	var to_target := (foot.target.origin - foot.sole.origin).slide(Vector3.UP)
-	var travel_speed := maxf(swing_speed,
-			_pelvis_velocity.length() * swing_speed_ratio)
+	var travel_speed := maxf(swing_speed, _speed * swing_speed_ratio)
 	var reach := maxf(travel_speed, 0.01) * delta
-	var arrived := to_target.length() <= reach
+
+	# The facing turns at its own rate, and arriving means the turn is done
+	# too - a step that is mostly a turn is still a step.
+	var facing := _flatten_facing(foot.sole.basis)
+	var target_facing := _flatten_facing(foot.target.basis)
+	var turn := facing.signed_angle_to(target_facing, Vector3.UP)
+	var turn_reach := deg_to_rad(swing_turn_speed) * delta
+	var turned_enough := absf(turn) <= turn_reach
+	var arrived := to_target.length() <= reach and turned_enough
 
 	var origin := foot.target.origin if arrived \
 			else foot.sole.origin + to_target.normalized() * reach
+	# The facing is eased about up; the tilt to the ground it will land on
+	# comes in with the step's progress, so the sole meets a slope flat.
+	var basis := foot.target.basis if turned_enough \
+			else _flat(foot.sole.basis).rotated(Vector3.UP, signf(turn) * turn_reach)
 
 	# Height follows how much of this step is left rather than how long it has
 	# taken, so a target that moves closer pulls the foot down instead of
 	# leaving it hanging. Sine is zero at both ends by construction: a foot
-	# cannot begin or finish a step already off the ground.
-	var travelled := (origin - foot.lift_from.origin).slide(Vector3.UP).length()
-	var remaining := (foot.target.origin - origin).slide(Vector3.UP).length()
+	# cannot begin or finish a step already off the ground. Turning counts
+	# toward the step as the distance the toes sweep.
+	var heading := _flatten_facing(basis)
+	var travelled := (origin - foot.lift_from.origin).slide(Vector3.UP).length() \
+			+ absf(_flatten_facing(foot.lift_from.basis).signed_angle_to(
+					heading, Vector3.UP)) * turn_lift_radius
+	var remaining := (foot.target.origin - origin).slide(Vector3.UP).length() \
+			+ absf(heading.signed_angle_to(target_facing, Vector3.UP)) * turn_lift_radius
 	var span := travelled + remaining
 	var along := travelled / span if span > 0.001 else 1.0
 	var peak := step_height * clampf(span / maxf(max_step_length, 0.001), 0.0, 1.0)
@@ -1187,17 +1647,24 @@ func _advance_foot(foot: Foot, is_left: bool, step: float, delta: float) -> void
 			foot.height, 0.0 if arrived else sin(along * PI) * peak,
 			maxf(lift_rate, 0.01) * delta)
 
-	origin.y = _ground_height() + foot.height
-	foot.sole = Transform3D(foot.target.basis, origin)
+	# The floor under wherever the foot is right now, not under the body: a
+	# step onto a stair or up a slope arcs over the ground it is crossing.
+	var floor := _floor_at(origin)
+	origin.y = floor.position.y + foot.height
+	if not arrived:
+		basis = _flat(basis).slerp(_tilted(_flat(basis), floor.normal), along)
+	foot.sole = Transform3D(basis, origin)
+	foot.moved = true
 
 	if arrived and foot.height <= 0.0:
 		foot.airborne = false
-		foot.committed = false
+		foot.settling = false
 		_since_land = 0.0
 
 
-## Whether the airborne foot has to come down now.
-func _should_land(foot: Foot, is_left: bool) -> bool:
+## Whether the step is over - see Foot.settling for what that does and does
+## not mean.
+func _should_settle(foot: Foot, is_left: bool) -> bool:
 	# Running out of reach is the one reason that cannot wait: the standing leg
 	# physically has nothing left, so this overrides the minimum air time.
 	if _stance_extension(not is_left) >= max_leg_stretch:
@@ -1206,12 +1673,11 @@ func _should_land(foot: Foot, is_left: bool) -> bool:
 	if foot.airtime < min_airtime:
 		return false
 
-	if _pelvis_velocity.length() < stop_speed:
+	if _speed < stop_speed:
 		return true
 
-	var travel := _travel_direction()
-	if not travel.is_zero_approx() and not foot.travel.is_zero_approx():
-		if travel.dot(foot.travel) < reversal_dot:
+	if not _travel.is_zero_approx() and not foot.travel.is_zero_approx():
+		if _travel.dot(foot.travel) < reversal_dot:
 			return true
 
 	return foot.airtime >= max_airtime
@@ -1235,9 +1701,11 @@ func _stance_extension(is_left: bool) -> float:
 ## the very first tick, before there is a stance for them to be measured against.
 func _stance_for(is_left: bool) -> Transform3D:
 	var local := Vector3((-0.5 if is_left else 0.5) * stance_width, 0.0, 0.0)
-	var origin := _balance_point + _upright * local
-	origin.y = _ground_height()
-	return Transform3D(_upright.rotated(Vector3.UP, _toe_out(is_left)), origin)
+	# Both feet are placed at once here, so neither can be the other's
+	# reference; the floor under the head is.
+	return _on_floor(
+			_kept_on_floor(_balance_point + _upright * local, _balance_point, _ground),
+			is_left)
 
 
 ## How far the toes splay outward, signed. Feet at rest are not parallel, and a
@@ -1264,33 +1732,89 @@ func _reach_target(is_left: bool, step: float) -> Transform3D:
 	# Half a step, because that is what a footfall is: the foot lands half a
 	# step in front of you and lifts again half a step behind, and the stride
 	# from one to the next is the whole of it.
-	var travel := _travel_direction()
-	if not travel.is_zero_approx():
-		local += (_to_local * travel) * (step * 0.5)
-	local += _to_local * _prediction()
+	if not _travel.is_zero_approx():
+		local += (_to_local * _travel) * (step * 0.5)
+	local += _to_local * _lead
 	local.y = 0.0
 
-	# Its own side of the body, clear of where the other foot actually is, and
-	# no wider than a stance. A planted foot keeps sitting where it was put
-	# while the body moves out from under it, so the midline alone is not
-	# enough - two individually legal placements can still end up touching.
-	var other := _right_foot if is_left else _left_foot
-	var beside := (_to_local * (other.sole.origin - _balance_point)).x
-	var gap := min_stance_separation
-	if is_left:
-		local.x = clampf(local.x, -max_stance_straddle,
-				minf(-gap * 0.5, maxf(beside - gap, -max_stance_straddle)))
+	if _striding():
+		# A stride may take a foot across the midline - that is what a
+		# sidestep is - but not through the other foot: a crossing step
+		# passes it in front, or behind.
+		var side := -1.0 if is_left else 1.0
+		if signf(local.x) != side:
+			local.z -= stride_cross_offset
+		local.x = clampf(local.x, -max_stance_straddle, max_stance_straddle)
 	else:
-		local.x = clampf(local.x,
-				maxf(gap * 0.5, minf(beside + gap, max_stance_straddle)),
-				max_stance_straddle)
+		# Its own side of the body, clear of where the other foot actually
+		# is, and no wider than a stance. A planted foot keeps sitting where
+		# it was put while the body moves out from under it, so the midline
+		# alone is not enough - two individually legal placements can still
+		# end up touching.
+		var other := _right_foot if is_left else _left_foot
+		var beside := (_to_local * (other.sole.origin - _balance_point)).x
+		var gap := min_stance_separation
+		if is_left:
+			local.x = clampf(local.x, -max_stance_straddle,
+					minf(-gap * 0.5, maxf(beside - gap, -max_stance_straddle)))
+		else:
+			local.x = clampf(local.x,
+					maxf(gap * 0.5, minf(beside + gap, max_stance_straddle)),
+					max_stance_straddle)
 
 	local.z = clampf(local.z, -max_stance_reach, max_stance_reach)
-	local = _clamp_to_leg(local, is_left)
+	local = _clamp_to_leg(local, is_left,
+			stride_leg_stretch if _striding() else max_leg_stretch)
 
-	var origin := _balance_point + _upright * local
-	origin.y = _ground_height()
-	return Transform3D(_upright.rotated(Vector3.UP, _toe_out(is_left)), origin)
+	# Not off a drop. The floor the other foot stands on is the floor to
+	# stay on, or the floor under the head while the other foot is in the
+	# air.
+	var other := _right_foot if is_left else _left_foot
+	var point := _balance_point + _upright * local
+	if other.airborne:
+		point = _kept_on_floor(point, _balance_point, _ground)
+	else:
+		point = _kept_on_floor(point, other.sole.origin, other.sole.origin.y)
+	return _on_floor(point, is_left)
+
+
+## A point pulled back from over a drop. Ground at the point further below
+## `floor` than a step is the bottom of something, not somewhere to step, so
+## the point is brought back toward `inside` - somewhere known to be on the
+## floor - by halving, and stops at the edge.
+func _kept_on_floor(point: Vector3, inside: Vector3, floor: float) -> Vector3:
+	if _floor_at(point).position.y >= floor - foot_drop_limit:
+		return point
+	var outside := point
+	for i in 4:
+		var middle := (inside + outside) * 0.5
+		if _floor_at(middle).position.y < floor - foot_drop_limit:
+			outside = middle
+		else:
+			inside = middle
+	return inside
+
+
+## A sole set down on the floor at a point: at the floor's height there, and
+## lying flat on it, facing the way the hips face plus the toes' splay.
+func _on_floor(point: Vector3, is_left: bool) -> Transform3D:
+	var floor := _floor_at(point)
+	var facing := _upright.rotated(Vector3.UP, _toe_out(is_left))
+	return Transform3D(_tilted(facing, floor.normal), floor.position)
+
+
+## A level basis tipped so that its up is the ground's normal, keeping its
+## heading along the ground.
+func _tilted(level: Basis, normal: Vector3) -> Basis:
+	var forward := (-level.z).slide(normal)
+	if forward.is_zero_approx():
+		return level
+	return Basis.looking_at(forward.normalized(), normal)
+
+
+## A basis flattened back to level, keeping only its heading.
+func _flat(basis: Basis) -> Basis:
+	return Basis.looking_at(_flatten_facing(basis), Vector3.UP)
 
 
 ## Pulls a placement in until the leg can actually get to it.
@@ -1299,13 +1823,13 @@ func _reach_target(is_left: bool, step: float) -> Transform3D:
 ## sqrt(leg squared minus the drop squared), and that is a real distance: it
 ## shrinks as you stand tall and opens up as you crouch, so a crouching player
 ## can reach further without anyone saying so.
-func _clamp_to_leg(local: Vector3, is_left: bool) -> Vector3:
+func _clamp_to_leg(local: Vector3, is_left: bool, stretch: float) -> Vector3:
 	var hip := left_hip_tracker if is_left else right_hip_tracker
 	if hip == null:
 		return local
 
 	var socket := _to_local * (hip.global_position - _balance_point)
-	var radius := _leg_reach(hip, max_leg_stretch)
+	var radius := _leg_reach(hip, stretch)
 
 	var flat := Vector2(local.x - socket.x, local.z - socket.z)
 	if flat.length() <= radius or flat.length() < 0.0001:
@@ -1319,13 +1843,18 @@ func _clamp_to_leg(local: Vector3, is_left: bool) -> Vector3:
 ## than just the top, because the band a room affords is narrow and a slow step
 ## still has to be a step.
 func _step_length() -> float:
-	var normalised := clampf(_pace / maxf(reference_speed, 0.001), 0.0, 1.0)
-	var step := lerpf(
-			min_step_length, max_step_length, pow(normalised, stride_exponent))
+	var step: float
+	if _striding():
+		# From the speed the body was told, not the speed it was seen at.
+		var normalised := clampf(commanded_travel.slide(Vector3.UP).length()
+				/ maxf(stride_reference_speed, 0.001), 0.0, 1.0)
+		step = lerpf(stride_min_length, stride_max_length, pow(normalised, stride_exponent))
+	else:
+		var normalised := clampf(_pace / maxf(reference_speed, 0.001), 0.0, 1.0)
+		step = lerpf(min_step_length, max_step_length, pow(normalised, stride_exponent))
 
-	var travel := _travel_direction()
-	if not travel.is_zero_approx():
-		step *= _directional_scale(travel)
+	if not _travel.is_zero_approx():
+		step *= _directional_scale(_travel)
 
 	return step
 
@@ -1338,17 +1867,6 @@ func _directional_scale(travel: Vector3) -> float:
 	return lerpf(lateral_step_scale, straight, absf(along))
 
 
-## How far anything is allowed to lead the body. Bounded on purpose.
-func _prediction() -> Vector3:
-	return _pelvis_velocity.limit_length(max_prediction_speed) * prediction_factor
-
-
-## Which way the body is going, or nothing if it is not going anywhere.
-func _travel_direction() -> Vector3:
-	var speed := _pelvis_velocity.length()
-	return _pelvis_velocity / speed if speed > MIN_TRAVEL_SPEED else Vector3.ZERO
-
-
 ## How far a foot is turned away from where it would stand.
 func _yaw_error(foot: Foot, is_left: bool) -> float:
 	var stance := (-_upright.z).rotated(Vector3.UP, _toe_out(is_left))
@@ -1356,14 +1874,26 @@ func _yaw_error(foot: Foot, is_left: bool) -> float:
 			stance, Vector3.UP))
 
 
-## The floor the player is standing on.
-##
-## No raycast, and that is deliberate: the XR origin's plane is the floor the
-## headset was calibrated against, so reading it is a measurement rather than a
-## question put to the world. Ground that is not flat is a correction the world
-## applies, and belongs to whatever layer comes after this one.
+## The floor the headset was calibrated against: the rig's own plane. This is
+## a measurement, not a question put to the world, and it is what the feet
+## stand on when there is no world to ask.
 func _ground_height() -> float:
 	return global_position.y
+
+
+## Where the floor is under a point, and which way it faces. Asked of the
+## physical layer through `ground_probe`, looking from `ground_search` above
+## the rig's floor to as far below it; with no probe, or nothing found, it is
+## the rig's floor, level. Nothing here collides - this only asks.
+func _floor_at(point: Vector3) -> Dictionary:
+	var floor := _ground_height()
+	if ground_probe.is_valid():
+		var hit: Dictionary = ground_probe.call(
+				Vector3(point.x, floor + ground_search, point.z),
+				Vector3(point.x, floor - ground_search, point.z))
+		if not hit.is_empty():
+			return hit
+	return {"position": Vector3(point.x, floor, point.z), "normal": Vector3.UP}
 
 
 ## Both ankles.
@@ -1396,10 +1926,9 @@ func _solve_knees() -> void:
 ## barely varies and needs none of the per-pose correction the elbow does, and
 ## there is no twist to distribute - a shin does not pronate.
 func _solve_knee(hip: Node3D, knee: Node3D, ankle: Node3D, is_left: bool) -> void:
-	if hip == null or knee == null or ankle == null or hip_tracker == null:
+	if hip == null or knee == null or ankle == null:
 		return
 
-	var pelvis_basis := hip_tracker.global_basis
 	var origin := hip.global_position
 	var to_ankle := ankle.global_position - origin
 	var chord := to_ankle.length()
@@ -1422,10 +1951,8 @@ func _solve_knee(hip: Node3D, knee: Node3D, ankle: Node3D, is_left: bool) -> voi
 	# Folded past a walking bend the hint gives way to the crouching one. The
 	# fold is measured against the whole leg, so 0.4 is a hip most of the way
 	# down to the ankles.
-	var hint := knee_pole_hint.lerp(crouch_knee_pole_hint,
-			crouch_knee_strength * smoothstep(0.0, 0.4, 1.0 - extension))
-	if is_left:
-		hint.x = -hint.x
+	var hint := _mirrored(knee_pole_hint.lerp(crouch_knee_pole_hint,
+			crouch_knee_strength * smoothstep(0.0, 0.4, 1.0 - extension)), is_left)
 	var pole := (ankle.global_basis * hint).slide(axis)
 	if pole.is_zero_approx():
 		# The leg lies along its own hint, which takes a leg raised straight out
@@ -1436,20 +1963,12 @@ func _solve_knee(hip: Node3D, knee: Node3D, ankle: Node3D, is_left: bool) -> voi
 			return
 	pole = pole.normalized()
 
-	var knee_position: Vector3
-	if chord >= thigh_length + shin_length:
-		# Standing taller than the leg is long. It straightens and the shin
-		# stretches rather than the foot being dragged up off the floor - the
-		# same bargain the arm strikes, and for the same reason: a stretched
-		# segment is honest about being out of range, where a moved foot would
-		# invent a step the player never took.
-		knee_position = origin + axis * thigh_length
-	else:
-		# Law of cosines: how far along the chord the circle sits, and its radius.
-		var along := (thigh_length * thigh_length - shin_length * shin_length
-				+ chord * chord) / (2.0 * chord)
-		var radius := sqrt(maxf(thigh_length * thigh_length - along * along, 0.0))
-		knee_position = origin + axis * along + pole * radius
+	# Standing taller than the leg is long, it straightens and the shin
+	# stretches rather than the foot being dragged up off the floor - the same
+	# bargain the arm strikes, and for the same reason: a stretched segment is
+	# honest about being out of range, where a moved foot would invent a step
+	# the player never took.
+	var knee_position := _bend(origin, axis, chord, pole, thigh_length, shin_length)
 
 	# A knee is a hinge, and a hinge has no roll of its own: it faces the way
 	# it bends, which is the pole. Rolling it from the pelvis instead turns it
