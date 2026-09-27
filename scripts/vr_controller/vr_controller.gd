@@ -1,4 +1,7 @@
-extends Node3D
+extends Node
+
+## Starts the player's XR session and keeps the physics tick rate matched to
+## the display refresh rate the runtime reports.
 
 const BASELINE_REFRESH_RATE: float = 72.0
 

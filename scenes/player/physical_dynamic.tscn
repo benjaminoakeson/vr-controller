@@ -1,0 +1,130 @@
+[gd_scene format=3 uid="uid://doosndktvnmqf"]
+
+[ext_resource type="Script" uid="uid://cdpgl77wuf4wt" path="res://scripts/physical/dynamic_physical.gd" id="1_physical"]
+[ext_resource type="Script" uid="uid://dmpqkdij221lb" path="res://scripts/physical/rig_carrier.gd" id="2_carrier"]
+[ext_resource type="Script" uid="uid://cqd8tvec8ymny" path="res://scripts/physical/capsule_body.gd" id="3_body"]
+[ext_resource type="Script" uid="uid://c4fddadss4e8o" path="res://scripts/physical/ground_sense.gd" id="4_ground"]
+[ext_resource type="Script" uid="uid://cl737wf88bjxc" path="res://scripts/physical/locomotion/locomotion.gd" id="5_locomotion"]
+[ext_resource type="Script" uid="uid://c705ggqln6nd" path="res://scripts/physical/locomotion/recovery.gd" id="6_recovery"]
+[ext_resource type="Script" uid="uid://c56h3tjp5y8i6" path="res://scripts/physical/locomotion/stick_walk.gd" id="7_stick"]
+[ext_resource type="Script" uid="uid://usgvxuereedt" path="res://scripts/physical/locomotion/arm_pump_run.gd" id="8_run"]
+[ext_resource type="Script" uid="uid://lgvx0ulh02vs" path="res://scripts/physical/locomotion/follow_head.gd" id="9_follow"]
+[ext_resource type="Script" uid="uid://bc3bdhh2eck1r" path="res://scripts/physical/locomotion/crouch.gd" id="10_crouch"]
+[ext_resource type="Script" uid="uid://c64x7utk4la30" path="res://scripts/physical/locomotion/step_assist.gd" id="11_step"]
+[ext_resource type="Script" uid="uid://cm8lsifs651dp" path="res://scripts/physical/locomotion/jump.gd" id="12_jump"]
+[ext_resource type="Script" path="res://scripts/physical/hand_drive.gd" id="13_hand"]
+[ext_resource type="Script" path="res://scripts/physical/hand_fingers.gd" id="14_fingers"]
+[ext_resource type="Script" path="res://scripts/physical/body_parts.gd" id="15_parts"]
+[ext_resource type="Script" path="res://scripts/physical/hand_grab.gd" id="16_grab"]
+
+[node name="Physical" type="Node3D" unique_id=779459554 node_paths=PackedStringArray("carrier", "body", "ground", "locomotion", "left_drive", "right_drive", "left_fingers", "right_fingers", "body_parts", "left_grab", "right_grab")]
+script = ExtResource("1_physical")
+carrier = NodePath("RigCarrier")
+body = NodePath("Body")
+ground = NodePath("GroundSense")
+locomotion = NodePath("Locomotion")
+left_drive = NodePath("LeftHandDrive")
+right_drive = NodePath("RightHandDrive")
+left_fingers = NodePath("LeftFingers")
+right_fingers = NodePath("RightFingers")
+left_grab = NodePath("LeftGrab")
+right_grab = NodePath("RightGrab")
+body_parts = NodePath("BodyParts")
+
+[node name="RigCarrier" type="Node" parent="." unique_id=1059108985]
+script = ExtResource("2_carrier")
+
+[node name="Body" type="RigidBody3D" parent="." unique_id=952223756 node_paths=PackedStringArray("collision", "ceiling_sensor")]
+top_level = true
+collision_layer = 16
+collision_mask = 3
+mass = 75.0
+script = ExtResource("3_body")
+collision = NodePath("CollisionShape3D")
+ceiling_sensor = NodePath("CeilingSensor")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body" unique_id=1094102126]
+
+[node name="GroundSensor" type="ShapeCast3D" parent="Body" unique_id=1110017055]
+enabled = false
+collision_mask = 3
+
+[node name="CeilingSensor" type="ShapeCast3D" parent="Body" unique_id=376330138]
+enabled = false
+collision_mask = 3
+
+[node name="GroundSense" type="Node" parent="." unique_id=1802011833 node_paths=PackedStringArray("sensor")]
+script = ExtResource("4_ground")
+sensor = NodePath("../Body/GroundSensor")
+
+[node name="Locomotion" type="Node" parent="." unique_id=1155147101]
+script = ExtResource("5_locomotion")
+
+[node name="Recovery" type="Node" parent="Locomotion" unique_id=1882999228]
+script = ExtResource("6_recovery")
+
+[node name="StickWalk" type="Node" parent="Locomotion" unique_id=1523892584]
+script = ExtResource("7_stick")
+
+[node name="ArmPumpRun" type="Node" parent="Locomotion" unique_id=607790437]
+script = ExtResource("8_run")
+
+[node name="FollowHead" type="Node" parent="Locomotion" unique_id=1377754228]
+script = ExtResource("9_follow")
+
+[node name="StepAssist" type="Node" parent="Locomotion" unique_id=1433341840]
+script = ExtResource("11_step")
+
+[node name="Jump" type="Node" parent="Locomotion" unique_id=161518344]
+script = ExtResource("12_jump")
+
+[node name="Crouch" type="Node" parent="Locomotion" unique_id=628830126]
+script = ExtResource("10_crouch")
+
+[node name="LeftHand" type="RigidBody3D" parent="."]
+top_level = true
+collision_layer = 32
+collision_mask = 3
+mass = 1.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="LeftHand"]
+
+[node name="LeftHandDrive" type="Generic6DOFJoint3D" parent="." node_paths=PackedStringArray("hand")]
+top_level = true
+script = ExtResource("13_hand")
+side = 0
+hand = NodePath("../LeftHand")
+
+[node name="RightHand" type="RigidBody3D" parent="."]
+top_level = true
+collision_layer = 32
+collision_mask = 3
+mass = 1.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RightHand"]
+
+[node name="RightHandDrive" type="Generic6DOFJoint3D" parent="." node_paths=PackedStringArray("hand")]
+top_level = true
+script = ExtResource("13_hand")
+side = 1
+hand = NodePath("../RightHand")
+
+[node name="LeftFingers" type="Node" parent="." node_paths=PackedStringArray("drive")]
+script = ExtResource("14_fingers")
+drive = NodePath("../LeftHandDrive")
+
+[node name="RightFingers" type="Node" parent="." node_paths=PackedStringArray("drive")]
+script = ExtResource("14_fingers")
+drive = NodePath("../RightHandDrive")
+
+[node name="LeftGrab" type="Node" parent="." node_paths=PackedStringArray("drive")]
+script = ExtResource("16_grab")
+drive = NodePath("../LeftHandDrive")
+
+[node name="RightGrab" type="Node" parent="." node_paths=PackedStringArray("drive")]
+script = ExtResource("16_grab")
+drive = NodePath("../RightHandDrive")
+
+[node name="BodyParts" type="Node" parent="." node_paths=PackedStringArray("body")]
+script = ExtResource("15_parts")
+body = NodePath("../Body")

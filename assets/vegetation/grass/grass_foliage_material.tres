@@ -1,0 +1,17 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/vegetation/grass/grass_foliage.gdshader" id="1_shader"]
+
+[resource]
+resource_name = "grass_foliage_material"
+shader = ExtResource("1_shader")
+shader_parameter/root_color = Color(0.17, 0.32, 0.09, 1)
+shader_parameter/tip_color = Color(0.62, 0.8, 0.32, 1)
+shader_parameter/clump_height = 2.2
+shader_parameter/gradient_power = 1.2
+shader_parameter/ground_color_blend = 0.8
+shader_parameter/ground_root_darkening = 0.25
+shader_parameter/clump_variation = 0.12
+shader_parameter/normal_up_blend = 0.6
+shader_parameter/roughness = 0.9
+shader_parameter/specular = 0.2

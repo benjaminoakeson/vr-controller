@@ -19,10 +19,10 @@ The existing static layer is mostly complete and is the baseline to preserve.
 Current collision and physical detection are lightweight foundations that need
 replacement with more capable systems. This document defines responsibilities
 and design direction; it does not claim that the proposed systems already exist.
-The shared mass-and-strength direction and lightweight dynamic-body proposal are
-detailed in [1 - physical.md](1%20-%20physical.md). See
-[the repository review and handoff](2%20-%20prototype_handoff.md) before implementing;
-the project already includes a test level and functional preliminary locomotion.
+The chosen structure, its migration ladder, and the alternatives considered are
+detailed in [1 - architecture.md](1%20-%20architecture.md). Read it before
+implementing; the project already includes a test level and functional
+preliminary locomotion.
 
 ## Layer responsibilities
 
@@ -199,7 +199,7 @@ The current prototype proposal is one upright dynamic capsule and two physical
 hands, with bounded drives, ground support, and slope-compensated locomotion.
 This replaces the earlier recommendation of a character-like body with conditional
 hand-driven displacement. Detailed formulation and tuning remain to be validated.
-See [the physical design](1%20-%20physical.md) for the controlling specification.
+See [the architecture](1%20-%20architecture.md) for the controlling specification.
 
 A detailed visual skeleton does not require a fully simulated ragdoll. Preserve
 the static solver and add physical detail only where an interaction needs it.

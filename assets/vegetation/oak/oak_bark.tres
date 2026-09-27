@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "oak_bark"
+albedo_color = Color(0.27, 0.23, 0.19, 1)
+metallic_specular = 0.3
+roughness = 0.92

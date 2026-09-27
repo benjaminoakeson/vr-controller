@@ -179,7 +179,7 @@ from desktop frame rates.
 
 Code should favor cohesive modules, composition where useful, explicit ownership,
 and separation of tracking, simulation, game rules, and presentation. See
-[controller design and implementation handoff](documents/player_controller/2%20-%20prototype_handoff.md)
+[the player controller architecture](documents/player_controller/1%20-%20architecture.md)
 for repository development guidance. Additional local assistant guidance lives in
 `CLAUDE.md`, which is currently ignored by Git.
 
@@ -197,8 +197,8 @@ arm-pump running; the shared force-based body and physical hands remain planned.
 
 Near-term development should extend this arena to validate the physical interaction
 foundation and 72 Hz performance on Quest 3S. See the
-[physical prototype handoff](documents/player_controller/2%20-%20prototype_handoff.md)
-for the reviewed implementation, migration requirements, and validation scope. Numerical
+[player controller architecture](documents/player_controller/1%20-%20architecture.md)
+for the chosen structure, migration ladder, and validation scope. Numerical
 performance budgets and supported scene complexity still need on-device evidence.
 
 Before expanding toward the full world, define a small playable slice of the

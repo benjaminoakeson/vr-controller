@@ -1,0 +1,44 @@
+[gd_scene format=3 uid="uid://4fup5ba4g3nq"]
+
+[ext_resource type="PackedScene" uid="uid://bwd723lhkhgnp" path="res://assets/models/weapons/sword.glb" id="1_model"]
+[ext_resource type="Script" uid="uid://dg7iv2u86r00u" path="res://scripts/props/grabbable.gd" id="2_grabbable"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_pommel"]
+size = Vector3(0.0443, 0.0443, 0.0262)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_grip"]
+size = Vector3(0.0496, 0.1633, 0.025)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_guard"]
+size = Vector3(0.1768, 0.0307, 0.026)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_blade"]
+size = Vector3(0.0488, 0.4402, 0.0174)
+
+[node name="Sword" type="RigidBody3D" unique_id=256569821]
+collision_layer = 2
+collision_mask = 315
+mass = 1.2
+continuous_cd = true
+max_contacts_reported = 4
+
+[node name="Model" parent="." unique_id=199596299 instance=ExtResource("1_model")]
+
+[node name="Pommel" type="CollisionShape3D" parent="." unique_id=133960586]
+transform = Transform3D(0.7071068, -0.7071068, 0, 0.7071068, 0.7071068, 0, 0, 0, 1, 0, -0.1218, 0)
+shape = SubResource("BoxShape3D_pommel")
+
+[node name="Grip" type="CollisionShape3D" parent="." unique_id=1359043745]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.02635, 0)
+shape = SubResource("BoxShape3D_grip")
+
+[node name="Guard" type="CollisionShape3D" parent="." unique_id=591850141]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07065, 0)
+shape = SubResource("BoxShape3D_guard")
+
+[node name="Blade" type="CollisionShape3D" parent="." unique_id=1926235809]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3061, 0)
+shape = SubResource("BoxShape3D_blade")
+
+[node name="Grabbable" type="Node" parent="." unique_id=1185782843]
+script = ExtResource("2_grabbable")

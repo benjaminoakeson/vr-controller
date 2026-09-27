@@ -1,0 +1,26 @@
+[gd_scene format=3 uid="uid://8ujnhn4lxc76"]
+
+[ext_resource type="Script" uid="uid://dxnft3dcmobsu" path="res://scripts/player/player.gd" id="1_player"]
+[ext_resource type="Script" uid="uid://on26pwqdr7t1" path="res://scripts/vr_controller/vr_controller.gd" id="1_xeh2f"]
+[ext_resource type="PackedScene" uid="uid://bobo27lpvjlgx" path="res://scenes/player/rig.tscn" id="2_rig"]
+[ext_resource type="PackedScene" uid="uid://reft77kt4eob" path="res://scenes/player/physical.tscn" id="3_physical"]
+[ext_resource type="PackedScene" uid="uid://cfe52dfkefmow" path="res://scenes/player/debug.tscn" id="4_debug"]
+[ext_resource type="PackedScene" uid="uid://cba5xpwgu5a6c" path="res://scenes/player/interface.tscn" id="5_interface"]
+
+[node name="Player" type="Node3D" unique_id=543244525 node_paths=PackedStringArray("rig", "physical", "interface")]
+script = ExtResource("1_player")
+rig = NodePath("Rig")
+physical = NodePath("Physical")
+interface = NodePath("Interface")
+debug_scene = ExtResource("4_debug")
+
+[node name="XRStartup" type="Node" parent="." unique_id=601204951]
+script = ExtResource("1_xeh2f")
+
+[node name="Rig" parent="." unique_id=1781139606 instance=ExtResource("2_rig")]
+
+[node name="Physical" parent="." unique_id=1036222571 instance=ExtResource("3_physical")]
+
+[node name="Visual" type="Node3D" parent="." unique_id=162442700]
+
+[node name="Interface" parent="." unique_id=749920681 instance=ExtResource("5_interface")]

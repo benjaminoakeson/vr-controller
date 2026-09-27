@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://cfe52dfkefmow"]
+
+[ext_resource type="Script" uid="uid://gkmvd2ji0uea" path="res://scripts/debug/player_debug.gd" id="1_debug"]
+[ext_resource type="Script" path="res://scripts/debug/physical_debug.gd" id="2_physical"]
+
+[node name="Debug" type="Node" unique_id=1418132419 node_paths=PackedStringArray("readout", "physical_debug")]
+script = ExtResource("1_debug")
+readout = NodePath("Readout")
+physical_debug = NodePath("PhysicalDebug")
+
+[node name="Readout" type="Label3D" parent="." unique_id=1959942296]
+pixel_size = 0.0004
+billboard = 1
+no_depth_test = true
+outline_size = 8
+
+[node name="PhysicalDebug" type="Node3D" parent="."]
+script = ExtResource("2_physical")

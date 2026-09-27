@@ -1,0 +1,36 @@
+[gd_scene format=3 uid="uid://cba5xpwgu5a6c"]
+
+[ext_resource type="Script" uid="uid://bscd3paw65qhh" path="res://scripts/interface/player_interface.gd" id="1_interface"]
+[ext_resource type="Script" uid="uid://bucijq56hp2ws" path="res://scripts/interface/view_fade.gd" id="2_fade"]
+[ext_resource type="Script" path="res://scripts/interface/hand_haptics.gd" id="3_haptics"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fade"]
+resource_local_to_scene = true
+render_priority = 127
+transparency = 1
+cull_mode = 2
+no_depth_test = true
+shading_mode = 0
+albedo_color = Color(0, 0, 0, 0)
+
+[sub_resource type="SphereMesh" id="SphereMesh_fade"]
+radius = 0.25
+height = 0.5
+radial_segments = 16
+rings = 8
+
+[node name="Interface" type="Node3D" unique_id=852286865 node_paths=PackedStringArray("view_fade", "hand_haptics")]
+script = ExtResource("1_interface")
+view_fade = NodePath("ViewFade")
+hand_haptics = NodePath("HandHaptics")
+
+[node name="ViewFade" type="MeshInstance3D" parent="." unique_id=1475164324]
+top_level = true
+visible = false
+material_override = SubResource("StandardMaterial3D_fade")
+cast_shadow = 0
+mesh = SubResource("SphereMesh_fade")
+script = ExtResource("2_fade")
+
+[node name="HandHaptics" type="Node" parent="."]
+script = ExtResource("3_haptics")

@@ -1,0 +1,51 @@
+[gd_resource type="FoliageDefinitionResource" format=3 uid="uid://cwo4ct7qovynt"]
+
+[ext_resource type="ArrayMesh" path="res://assets/vegetation/grass/grass_mesh.res" id="1_mesh"]
+[ext_resource type="Texture2D" uid="uid://y3cc5xpwmguj" path="res://addons/terrabrush/Resources/DefaultNoise.tres" id="2_noise"]
+[ext_resource type="Shader" uid="uid://byxg4il0h1605" path="res://assets/vegetation/grass/grass_foliage.gdshader" id="3_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_grass"]
+render_priority = 0
+shader = ExtResource("3_shader")
+shader_parameter/GlobalPosition = Vector3(0, 0, 0)
+shader_parameter/OffsetPosition = Vector3(0, 0, 0)
+shader_parameter/InitialCellWidth = 1.0
+shader_parameter/LODRowsPerLevel = 10
+shader_parameter/LODLevels = 5
+shader_parameter/WindStrength = 0.1
+shader_parameter/FoliageAlbedo = Color(1, 1, 1, 1)
+shader_parameter/FoliageNumberOfTexture = 0
+shader_parameter/UseGroundColor = true
+shader_parameter/MeshScale = Vector3(1, 1, 1)
+shader_parameter/UseBrushScale = true
+shader_parameter/RandomPlacementRange = 2.0
+shader_parameter/ApplyOnTextureIndexes = PackedInt32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+shader_parameter/NumberOfTexturesToApplyOn = 0
+shader_parameter/NearestFilter = false
+shader_parameter/TextureDetail = 0
+shader_parameter/NumberOfTextures = 0
+shader_parameter/WaterFactor = 0.0
+shader_parameter/ZonesSize = 0.0
+shader_parameter/Resolution = 0.0
+shader_parameter/NumberOfZones = 0.0
+shader_parameter/root_color = Color(0.17, 0.32, 0.09, 1)
+shader_parameter/tip_color = Color(0.62, 0.8, 0.32, 1)
+shader_parameter/clump_height = 2.2
+shader_parameter/gradient_power = 1.2
+shader_parameter/ground_color_blend = 0.8
+shader_parameter/ground_root_darkening = 0.25
+shader_parameter/clump_variation = 0.12
+shader_parameter/normal_up_blend = 0.6
+shader_parameter/roughness = 0.9
+shader_parameter/specular = 0.2
+
+[resource]
+mesh = ExtResource("1_mesh")
+meshScale = Vector3(0.2, 0.2, 0.2)
+noiseTexture = ExtResource("2_noise")
+lodLevels = 2
+lodRowsPerLevel = 15
+lodInitialCellWidth = 0.5
+randomPlacementRange = 0.5
+customShader = SubResource("ShaderMaterial_grass")
+resource_name = "grass_foliage"

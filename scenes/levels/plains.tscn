@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://bdvi3o4lqy1bn"]
+
+[node name="Plains" type="Node3D" unique_id=1128918218]
+
+[node name="TerraBrush" type="TerraBrush" parent="." unique_id=544450062]
+dataPath = "res://scenes/levels/Plains"
+collisionOnly = true
+physics_interpolation_mode = 2
+metadata/_edit_lock_ = false

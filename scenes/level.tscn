@@ -8,6 +8,21 @@
 [ext_resource type="Material" uid="uid://c62nximxk2jyn" path="res://assets/materials/prototype/light_green.tres" id="6_b121j"]
 [ext_resource type="Texture2D" uid="uid://dlket2dbalelk" path="res://assets/materials/textures/prototype/prototype_512x512_yellow.png" id="7_b121j"]
 [ext_resource type="Texture2D" uid="uid://bifpxdybj6gjk" path="res://assets/materials/textures/prototype/prototype_512x512_red.png" id="8_8c41q"]
+[ext_resource type="Image" uid="uid://c4tnlowbvn2do" path="res://scenes/Level/Heightmap_0_0.res" id="9_8c41q"]
+[ext_resource type="Texture2D" uid="uid://bsj5g4si0u747" path="res://assets/materials/grass/GrassTexture.png" id="9_wc255"]
+[ext_resource type="Texture2D" uid="uid://d3apxsn5kl0d7" path="res://assets/materials/grass/GrassHeight.png" id="10_arp2o"]
+[ext_resource type="Texture2D" uid="uid://b7o0os61km13n" path="res://assets/materials/grass/GrassNormal.png" id="11_ux5qa"]
+[ext_resource type="Texture2D" uid="uid://csapd0wh37aso" path="res://assets/materials/grass/GrassRoughness.png" id="12_82cfe"]
+[ext_resource type="Texture2D" uid="uid://caikpivbgdcf3" path="res://assets/materials/dirt/DirtTexture.png" id="13_gunhw"]
+[ext_resource type="Texture2D" uid="uid://cvfduos334o2" path="res://assets/materials/dirt/DirtNormal.png" id="14_8gofh"]
+[ext_resource type="Image" uid="uid://383m7mh18qn0" path="res://scenes/Level/Color_0_0.res" id="16_82cfe"]
+[ext_resource type="Material" path="res://assets/vegetation/grass/grass_foliage_material.tres" id="16_h6wmr"]
+[ext_resource type="ArrayMesh" path="res://assets/vegetation/grass/grass_mesh.res" id="17_pqd0y"]
+[ext_resource type="Image" uid="uid://jddec6ym7k6e" path="res://scenes/Level/Splatmap_0_0_0.res" id="18_gunhw"]
+[ext_resource type="Image" uid="uid://0vg5lfl4s6h8" path="res://scenes/Level/Foliage_0_0_0.res" id="19_5k0ak"]
+[ext_resource type="Script" uid="uid://dg7iv2u86r00u" path="res://scripts/props/grabbable.gd" id="20_grabbable"]
+[ext_resource type="PackedScene" uid="uid://4fup5ba4g3nq" path="res://scenes/props/sword.tscn" id="21_sword"]
+[ext_resource type="PackedScene" uid="uid://bsu2aelb5h8yp" path="res://scenes/props/dagger.tscn" id="22_dagger"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_dpmpi"]
 size = Vector3(0.1, 0.1, 0.1)
@@ -40,6 +55,37 @@ uv1_triplanar = true
 material = SubResource("StandardMaterial3D_t1rx8")
 size = Vector3(0.1, 0.1, 0.1)
 
+[sub_resource type="TextureSetResource" id="TextureSetResource_qfryc"]
+albedoTexture = ExtResource("9_wc255")
+normalTexture = ExtResource("11_ux5qa")
+roughnessTexture = ExtResource("12_82cfe")
+heightTexture = ExtResource("10_arp2o")
+
+[sub_resource type="TextureSetResource" id="TextureSetResource_d7487"]
+albedoTexture = ExtResource("13_gunhw")
+normalTexture = ExtResource("14_8gofh")
+
+[sub_resource type="TextureSetsResource" id="TextureSetsResource_a3tek"]
+textureSets = Array[TextureSetResource]([SubResource("TextureSetResource_qfryc"), SubResource("TextureSetResource_d7487")])
+
+[sub_resource type="FoliageDefinitionResource" id="FoliageDefinitionResource_xqamo"]
+mesh = ExtResource("17_pqd0y")
+meshScale = Vector3(0.3, 0.3, 0.3)
+lodInitialCellWidth = 0.25
+customShader = ExtResource("16_h6wmr")
+
+[sub_resource type="FoliageResource" id="FoliageResource_rhh3t"]
+definition = SubResource("FoliageDefinitionResource_xqamo")
+
+[sub_resource type="ZoneResource" id="ZoneResource_olg7q"]
+heightMapImage = ExtResource("9_8c41q")
+colorImage = ExtResource("16_82cfe")
+splatmapsImage = Array[Image]([ExtResource("18_gunhw")])
+foliagesImage = Array[Image]([ExtResource("19_5k0ak")])
+
+[sub_resource type="ZonesResource" id="ZonesResource_t1rx8"]
+zones = Array[ZoneResource]([SubResource("ZoneResource_olg7q")])
+
 [node name="Level" type="Node3D" unique_id=728325349]
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1359735385]
@@ -56,7 +102,8 @@ use_collision = true
 collision_mask = 0
 
 [node name="CSGBox3D" type="CSGBox3D" parent="Static" unique_id=1638572647]
-size = Vector3(10, 1, 10)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2)
+size = Vector3(10, 1, 14)
 material = ExtResource("1_w7c3h")
 
 [node name="CSGBox3D2" type="CSGBox3D" parent="Static" unique_id=117030664]
@@ -119,8 +166,14 @@ size = Vector3(1, 0.75, 1)
 material = ExtResource("1_w7c3h")
 
 [node name="CSGBox3D14" type="CSGBox3D" parent="Static" unique_id=1118982944]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0)
-size = Vector3(0.5, 1, 1)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0.25054932)
+size = Vector3(0.5, 1, 1.5)
+material = ExtResource("1_w7c3h")
+
+[node name="CSGBox3D15" type="CSGBox3D" parent="Static" unique_id=974355962]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 4.5)
+operation = 2
+size = Vector3(1, 1, 2)
 material = ExtResource("1_w7c3h")
 
 [node name="Dynamic" type="Node3D" parent="." unique_id=1102237811]
@@ -128,7 +181,7 @@ material = ExtResource("1_w7c3h")
 [node name="LightBox" type="RigidBody3D" parent="Dynamic" unique_id=917043027]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1.05, -0.4)
 collision_layer = 2
-collision_mask = 3
+collision_mask = 315
 mass = 2.0
 
 [node name="BoxCollider" type="CollisionShape3D" parent="Dynamic/LightBox" unique_id=1694586811]
@@ -137,10 +190,13 @@ shape = SubResource("BoxShape3D_dpmpi")
 [node name="BoxMesh" type="MeshInstance3D" parent="Dynamic/LightBox" unique_id=1523668138]
 mesh = SubResource("BoxMesh_6x1ae")
 
+[node name="Grabbable" type="Node" parent="Dynamic/LightBox" unique_id=521762168]
+script = ExtResource("20_grabbable")
+
 [node name="MediumBox" type="RigidBody3D" parent="Dynamic" unique_id=1749939213]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1.05, -0.25)
 collision_layer = 2
-collision_mask = 3
+collision_mask = 315
 mass = 5.0
 
 [node name="BoxCollider" type="CollisionShape3D" parent="Dynamic/MediumBox" unique_id=1321432110]
@@ -149,10 +205,13 @@ shape = SubResource("BoxShape3D_b121j")
 [node name="BoxMesh" type="MeshInstance3D" parent="Dynamic/MediumBox" unique_id=1345418148]
 mesh = SubResource("BoxMesh_olg7q")
 
+[node name="Grabbable" type="Node" parent="Dynamic/MediumBox" unique_id=777145838]
+script = ExtResource("20_grabbable")
+
 [node name="HeavyBox" type="RigidBody3D" parent="Dynamic" unique_id=1671335937]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1.05, -0.1)
 collision_layer = 2
-collision_mask = 3
+collision_mask = 315
 mass = 10.0
 
 [node name="BoxCollider" type="CollisionShape3D" parent="Dynamic/HeavyBox" unique_id=376651239]
@@ -161,7 +220,25 @@ shape = SubResource("BoxShape3D_t1rx8")
 [node name="BoxMesh" type="MeshInstance3D" parent="Dynamic/HeavyBox" unique_id=1132407977]
 mesh = SubResource("BoxMesh_64w2a")
 
+[node name="Grabbable" type="Node" parent="Dynamic/HeavyBox" unique_id=654196330]
+script = ExtResource("20_grabbable")
+
+[node name="Sword" parent="Dynamic" unique_id=897468572 instance=ExtResource("21_sword")]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0.93, 1.013, 0.52)
+
+[node name="Dagger" parent="Dynamic" unique_id=1163662931 instance=ExtResource("22_dagger")]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0.785, 1.0125, 0.33)
+
 [node name="VrController" parent="." unique_id=788331903 instance=ExtResource("2_w8frs")]
 
 [node name="PlanarMirror" parent="." unique_id=1999928701 instance=ExtResource("3_mx8sn")]
 transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 3, 1, -1)
+
+[node name="TerraBrush" type="TerraBrush" parent="." unique_id=8779897]
+dataPath = "res://scenes/Level"
+textureSets = SubResource("TextureSetsResource_a3tek")
+textureDetail = 100
+foliages = Array[FoliageResource]([SubResource("FoliageResource_rhh3t")])
+terrainZones = SubResource("ZonesResource_t1rx8")
+physics_interpolation_mode = 2
+metadata/_edit_lock_ = false

@@ -487,6 +487,13 @@ class Foot:
 # Exposed for inspection while this is being calibrated.
 var left_arm_twist := 0.0
 var right_arm_twist := 0.0
+## Which way each elbow bends this tick: the unit direction, across the line
+## from shoulder to wrist, from that line to the elbow (after the upper arm's
+## clamp; world axes). Read by the physical arm (HandDrive, BodyParts), which
+## bends the same way. On a straight arm, where the elbow lies on the line and
+## says nothing about which way to bend, it is the way the arm would bend.
+var left_elbow_pole := Vector3.DOWN
+var right_elbow_pole := Vector3.DOWN
 
 # The finger joints, [finger][phalanx], for each hand. Built once at startup.
 var _left_fingers: Array = []
@@ -1023,6 +1030,15 @@ func _solve_elbow(
 		elbow_position = origin + _clamp_upper_arm(
 				arm.normalized(), is_left) * upper_arm_length
 
+	# Which way the arm finally bends, after the clamp; on a straight arm, the
+	# way it would.
+	var bent := (elbow_position - origin).slide(axis)
+	var bends := bent.normalized() if bent.length() > 0.001 else pole
+	if is_left:
+		left_elbow_pole = bends
+	else:
+		right_elbow_pole = bends
+
 	var to_hand := wrist.global_position - elbow_position
 	if to_hand.is_zero_approx():
 		return
@@ -1219,6 +1235,19 @@ func finger_joint(is_left: bool, finger: Finger, phalanx: Phalanx) -> Node3D:
 	if fingers.is_empty():
 		return null
 	return fingers[finger][phalanx]
+
+
+## One finger joint's frame with the finger straight, relative to the joint
+## before it (or to the hand, for a root joint): where it sits and which way
+## it faces before it bends. Bending turns this frame about its own X, toward
+## -Y. Read-only; identity when the hand has no tracker.
+func finger_rest(is_left: bool, finger: Finger, phalanx: Phalanx) -> Transform3D:
+	var fingers := _left_fingers if is_left else _right_fingers
+	var frames := _left_finger_frames if is_left else _right_finger_frames
+	if fingers.is_empty():
+		return Transform3D.IDENTITY
+	var joint: Node3D = fingers[finger][phalanx]
+	return Transform3D(frames[finger][phalanx], joint.position)
 
 
 ## Builds one hand's fingers under its tracker and returns them, [finger]

@@ -1,0 +1,12 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[ext_resource type="Texture2D" uid="uid://ce7duc8rci5xs" path="res://assets/vegetation/oak/oak_leaf.png" id="1_leaf"]
+
+[resource]
+resource_name = "oak_leaf"
+transparency = 2
+alpha_scissor_threshold = 0.5
+cull_mode = 2
+albedo_texture = ExtResource("1_leaf")
+metallic_specular = 0.15
+roughness = 0.75

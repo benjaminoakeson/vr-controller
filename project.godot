@@ -21,8 +21,14 @@ XRToolsUserSettings="*uid://bqgb8i74tm0t"
 XRToolsRumbleManager="*uid://by853dk86g1qw"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
+[debug]
+
+shapes/collision/max_contacts_displayed=0
+
 [display]
 
+window/size/viewport_width=2560
+window/size/viewport_height=1440
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
@@ -34,12 +40,19 @@ enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
 
 3d_physics/layer_1="Static"
 3d_physics/layer_2="Dynamic"
+3d_physics/layer_3="Grabbable"
+3d_physics/layer_4="Held"
 3d_physics/layer_5="Player"
+3d_physics/layer_6="Hands"
+3d_physics/layer_7="Interface"
+3d_physics/layer_8="ClimbHold"
+3d_physics/layer_9="Enemy"
 
 [physics]
 
 common/physics_ticks_per_second=72
 3d/physics_engine="Jolt Physics"
+jolt_physics_3d/simulation/penetration_slop=0.005
 
 [rendering]
 

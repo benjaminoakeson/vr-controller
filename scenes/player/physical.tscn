@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://reft77kt4eob"]
+
+[ext_resource type="Script" path="res://scripts/physical/kinematic_physical.gd" id="1_physical"]
+[ext_resource type="Script" uid="uid://bxqjsf0kt1n2u" path="res://scripts/physical/player_body.gd" id="5_body"]
+
+[node name="Physical" type="Node3D" unique_id=953097040 node_paths=PackedStringArray("body")]
+script = ExtResource("1_physical")
+body = NodePath("PlayerBody")
+
+[node name="PlayerBody" type="CharacterBody3D" parent="." unique_id=1879109888 node_paths=PackedStringArray("collision", "ground_cast")]
+script = ExtResource("5_body")
+collision = NodePath("CollisionShape3D")
+ground_cast = NodePath("GroundCast")
+max_walk_speed = 1.5
+walk_acceleration = 15.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PlayerBody" unique_id=1111785034]
+
+[node name="GroundCast" type="ShapeCast3D" parent="PlayerBody" unique_id=1850926743]
+enabled = false
