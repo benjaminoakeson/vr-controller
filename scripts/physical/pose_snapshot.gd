@@ -16,6 +16,13 @@ var body_position := Vector3.ZERO
 var body_velocity := Vector3.ZERO
 ## The collision capsule's height from the feet to its top, in metres.
 var body_height := 0.0
+## The collision capsule's radius, in metres.
+var body_radius := 0.0
+## How far the legs are drawn up: the capsule's bottom this far above the
+## feet, in metres (climbing, 2026-09-28).
+var body_tuck := 0.0
+## Snap turns so far.
+var turns := 0
 ## Whether the ground is holding the body up, and which way that ground faces.
 var supported := false
 ## Whether the legs are lifting the body up a step, or lowering it down one.
@@ -44,6 +51,8 @@ var rig_carry := Vector3.ZERO
 var rig_correction := 0.0
 ## The walking motor's force this tick, in newtons.
 var motor_force := Vector3.ZERO
+## What the hands carry along with the body, in kg (CapsuleBody.carried_mass).
+var carried_mass := 0.0
 ## How many times the rig or body has been relocated (recentre, respawn).
 var relocations := 0
 ## The physical hands, left then right: where they are and where they are
@@ -65,8 +74,10 @@ var arm_holding: Array[Vector2] = [Vector2.ZERO, Vector2.ZERO]
 var hand_touching: Array[bool] = [false, false]
 ## The most a hand's drive can push, in newtons; zero without physical hands.
 var hand_strength := 0.0
-## Each physical hand's palm box, in metres, in hand space.
+## Each physical hand's palm box, in metres, in hand space, and how far its
+## middle sits ahead of the hand's centre (toward the fingers, -Z).
 var palm_size := Vector3.ZERO
+var palm_shift := 0.0
 ## The physical finger bones, left hand then right, each hand thumb to little
 ## finger, root to tip (index = side * 15 + finger * 3 + phalanx): where each
 ## bone's joint is, with -Z along the bone; and each bone's radius and length,
@@ -84,6 +95,14 @@ var finger_reversals := PackedInt32Array([0, 0])
 ## shape itself, to be read and not changed. A capsule's axis is its Y.
 var body_parts: Array[Transform3D] = []
 var body_part_shapes: Array[Shape3D] = []
+## The physical body's joints (BodyParts.Joint order), where its parts meet,
+## in world space: the neck and shoulders where the head has them, the elbows
+## and wrists where the physical arms are, the hips, knees and ankles where the
+## physical body stands. Each foot's sole (left, right), on the ground under
+## its ankle: -Z toward the toes, +Y the ground's normal. Empty until the body
+## parts are built.
+var body_joints: Array[Vector3] = []
+var body_soles: Array[Transform3D] = []
 ## How far each arm is stretched past its length to stay joined, in metres.
 var arm_stretch := PackedFloat32Array([0.0, 0.0])
 ## How many body parts (not the capsule) something is pushing on, and which:
@@ -96,11 +115,39 @@ var prop_contact := 0
 ## kg; zero when none was.
 var prop_position := Vector3.ZERO
 var prop_mass := 0.0
-## Per hand, its grab (HandGrab.State: 0 idle, 1 pulling in, 2 holding); the
+## Per hand, its grab (HandGrab.State: 0 idle, 1 seating, 2 holding); the
 ## hand's grab point and the object's (the candidate's while idle; the hand's
 ## own when there is none), in world space; and how far apart they are.
 var grab_state := PackedInt32Array([0, 0])
 var grab_hand_points: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
 var grab_object_points: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
 var grab_gap := PackedFloat32Array([0.0, 0.0])
+## Per hand, how far what it holds has turned in it since its grip joint was
+## made, in degrees (HandGrab.held_turn).
+var grab_turn := PackedFloat32Array([0.0, 0.0])
+## Per hand, its part in holding an object with the other hand (0 none, 1 the
+## lead, 2 the second hand), and whether the two aim it between them.
+var grab_role := PackedInt32Array([0, 0])
+var grab_aiming: Array[bool] = [false, false]
+## Per hand, the mass of what it is pulling in or holding, in kg, and how far
+## its centre of mass is from the hand's centre, in metres; zero when it
+## holds nothing.
+var grab_mass := PackedFloat32Array([0.0, 0.0])
+var grab_offset := PackedFloat32Array([0.0, 0.0])
+## How many props each hand (left, right) has thrown, the velocity the last
+## one left with, and the velocity its own last step gave it, in m/s
+## (2026-09-30).
+var throws := PackedInt32Array([0, 0])
+var throw_velocity: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
+var throw_own_velocity: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
+## How many strikes each hand (left, right) has made (the strike model,
+## 2026-09-30: by the hand itself, by what it held, or by what it let go of),
+## the last one, and where that one came from (HandStrikes.Source).
+var strikes := PackedInt32Array([0, 0])
+var last_strikes: Array[Strike] = [null, null]
+var strike_sources := PackedInt32Array([0, 0])
+## Whether each hand (left, right) holds a Climbable hold, and whether either
+## does: the player is climbing (2026-09-28).
+var grab_on_hold: Array[bool] = [false, false]
+var climbing := false
 var parts_pressed := 0

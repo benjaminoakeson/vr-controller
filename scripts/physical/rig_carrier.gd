@@ -50,6 +50,8 @@ var carried := Vector3.ZERO
 var pushed_back := 0.0
 ## Recentres and respawns so far.
 var relocations := 0
+## Snap turns so far.
+var turns := 0
 
 var _rig: PlayerRig
 var _body: CapsuleBody
@@ -114,7 +116,7 @@ func expect_follow(follow: Vector3, delta: float, ground: GroundSense) -> void:
 		_follow_response += (_horizontal(follow) - _follow_response) \
 				* minf(delta / _body.response_time, 1.0) * _body.drive_share
 	var velocity := _body.linear_velocity \
-			+ (_body.motor_force / _body.mass + _body.get_gravity()) * delta
+			+ (_body.motor_force / _body.moved_mass() + _body.get_gravity()) * delta
 	if ground.supported or ground.stepping_down:
 		# The ground holding the body up is expected, not an obstacle.
 		velocity -= ground.normal * minf(velocity.dot(ground.normal), 0.0)
@@ -145,6 +147,27 @@ func measure_head() -> void:
 	head_lead = Vector3(head.x - feet.x, 0.0, head.z - feet.z)
 	head_tracked = _is_head_tracked()
 	head_obstruction = _obstruction(_rig.head.global_position, feet) if head_tracked else 0.0
+
+
+## Turns the rig `angle` radians about the vertical through the head's centre
+## (a snap turn), which the body stands under: the body need not move, and
+## the eyes swing 7.7 cm round it, as they do when a real head turns. Turned
+## about the eyes instead, the body was left 7.7 cm out of place: following
+## the head back nudged what both hands held by 1-2.5°, and moved there at
+## once, it was pushed back off the table's edge and a dagger on it, the push
+## carried into the view (harness, 2026-09-30). With `with_body` the body's
+## motion turns too, so a walk goes on the way the view now faces. Returns
+## the turn, for everything else that turns with the player (DynamicPhysical).
+func turn(angle: float, with_body: bool) -> Transform3D:
+	var pivot: Vector3 = _rig.head_centre()
+	var turning := Transform3D(Basis(Vector3.UP, angle), pivot) * Transform3D(Basis.IDENTITY, -pivot)
+	_rig.global_transform = turning * _rig.global_transform
+	if with_body:
+		_body.turn(turning.basis)
+		_follow_response = turning.basis * _follow_response
+		_untouched = turning.basis * _untouched
+	turns += 1
+	return turning
 
 
 ## Moves only the rig, e.g. to bring the head back over the body.

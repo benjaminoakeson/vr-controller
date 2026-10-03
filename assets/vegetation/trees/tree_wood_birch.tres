@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/vegetation/trees/tree_wood.gdshader" id="1_82lcn"]
+[ext_resource type="Texture2D" path="res://assets/vegetation/trees/bark_birch.png" id="2_qv3sr"]
+[ext_resource type="Texture2D" path="res://assets/vegetation/trees/tree_inner_rings.tres" id="3_0anwu"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_82lcn")
+shader_parameter/bark_albedo = ExtResource("2_qv3sr")
+shader_parameter/bark_roughness = 0.8
+shader_parameter/inner_albedo = ExtResource("3_0anwu")
+shader_parameter/inner_tint = Color(0.93, 0.86, 0.72, 1)

@@ -1,0 +1,82 @@
+[gd_resource type="Resource" script_class="TreeSpecies" format=3 uid="uid://jvldgp0uyagh"]
+
+[ext_resource type="Script" uid="uid://d8pm3x538b1n" path="res://scripts/trees/tree_species.gd" id="1_3vpo4"]
+[ext_resource type="Script" uid="uid://bdks03cedap0f" path="res://scripts/trees/tree_branch_level.gd" id="2_d1n4f"]
+[ext_resource type="Material" path="res://assets/vegetation/trees/tree_leaf_oak.tres" id="2_i0f87"]
+[ext_resource type="Material" path="res://assets/vegetation/trees/tree_wood_oak.tres" id="4_8pcbw"]
+
+[sub_resource type="Curve" id="Curve_3vpo4"]
+_data = [Vector2(0, 0.7), 0.0, 0.5, 1, 1, Vector2(0.6, 1), 0.5, -1.0, 1, 1, Vector2(1, 0.6), -1.0, 0.0, 1, 1]
+point_count = 3
+
+[sub_resource type="Resource" id="Resource_d1n4f"]
+script = ExtResource("2_d1n4f")
+segments_min = 5
+segments_max = 7
+kink_chance = 0.33
+length_along_parent = SubResource("Curve_3vpo4")
+radius_ratio = 0.45
+start_fraction = 0.45
+density_per_m = 0.9
+spread_angle_deg = 70.0
+spread_jitter_deg = 10.0
+leaf_start_fraction = 0.3
+up_bias_deg_per_m = 12.0
+
+[sub_resource type="Resource" id="Resource_i0f87"]
+script = ExtResource("2_d1n4f")
+segments_min = 2
+segments_max = 3
+kink_chance = 0.44
+start_fraction = 0.25
+density_per_m = 1.2
+spread_jitter_deg = 15.0
+leaves_per_m = 4.0
+leaf_start_fraction = 0.3
+min_radius_m = 0.012
+
+[sub_resource type="Resource" id="Resource_8pcbw"]
+script = ExtResource("2_d1n4f")
+segments_min = 1
+segments_max = 1
+kink_chance = 0.6
+density_per_m = 2.0
+spread_angle_deg = 40.0
+spread_jitter_deg = 15.0
+leaves_per_m = 4.0
+leaf_start_fraction = 0.3
+min_radius_m = 0.005
+kink_angle_deg = 20.0
+
+[sub_resource type="Curve" id="Curve_8pcbw"]
+_data = [Vector2(0, 1), 0.0, -0.975, 0, 0, Vector2(1, 0.7594937), -0.525, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Resource" id="Resource_521sc"]
+script = ExtResource("2_d1n4f")
+segments_min = 7
+segments_max = 9
+kink_chance = 0.28
+base_radius_m = 0.4
+leaves_per_m = 0.5
+leaf_start_fraction = 0.05
+leaf_spacing_jitter = 1.0
+tip_leaves = 5
+girth_falloff = SubResource("Curve_8pcbw")
+min_radius_m = 0.05
+kink_angle_deg = 30.0
+up_bias_deg_per_m = 6.0
+
+[resource]
+script = ExtResource("1_3vpo4")
+segment_length_min_m = 0.45
+segment_length_max_m = 0.55
+trunk = SubResource("Resource_521sc")
+branch_levels = Array[ExtResource("2_d1n4f")]([SubResource("Resource_d1n4f"), SubResource("Resource_i0f87"), SubResource("Resource_8pcbw")])
+wood_material = ExtResource("4_8pcbw")
+bark_tile_width_m = 0.7
+bark_tile_height_m = 0.7
+leaf_style = 1
+leaf_material = ExtResource("2_i0f87")
+leaf_size_m = 1.3
+leaf_angle_deg = 40.0

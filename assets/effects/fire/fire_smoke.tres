@@ -1,0 +1,26 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bh0vixfjcq6px"]
+
+[ext_resource type="Shader" uid="uid://qufi7e53ttcs" path="res://assets/effects/fire/fire_smoke.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://j08hiua1v0f0" path="res://assets/effects/fire/flame.png" id="2_texture"]
+
+[resource]
+render_priority = -1
+shader = ExtResource("1_shader")
+shader_parameter/smoke_texture = ExtResource("2_texture")
+shader_parameter/lifetime = 4.0
+shader_parameter/start_height = 0.2999999932944
+shader_parameter/base_radius = 0.08
+shader_parameter/rise_speed = 0.45
+shader_parameter/rise_slowing = 0.5
+shader_parameter/meander = 0.2999999932944
+shader_parameter/wind = Vector3(0.1, 0, 0.04)
+shader_parameter/spin = 0.35
+shader_parameter/start_size = 0.05000000074506
+shader_parameter/end_size = 0.99999997951066
+shader_parameter/smoke_color = Color(0.78, 0.79, 0.82, 1)
+shader_parameter/opacity = 0.45
+shader_parameter/dissolve = 0.5
+shader_parameter/glow_color = Color(1, 0.45, 0.12, 1)
+shader_parameter/glow = 0.3
+shader_parameter/glow_height = 0.35
+shader_parameter/near_fade = Vector2(0.7, 0.3)

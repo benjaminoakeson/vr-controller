@@ -2,6 +2,8 @@
 
 [ext_resource type="PackedScene" uid="uid://dec8mfshmxvwx" path="res://assets/models/weapons/dagger.glb" id="1_model"]
 [ext_resource type="Script" uid="uid://dg7iv2u86r00u" path="res://scripts/props/grabbable.gd" id="2_grabbable"]
+[ext_resource type="Script" uid="uid://drgvvw7c8uncj" path="res://scripts/strike/striker.gd" id="3_striker"]
+[ext_resource type="Script" uid="uid://dqdatyo8pj3lm" path="res://scripts/strike/sharp.gd" id="4_sharp"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_grip"]
 size = Vector3(0.0496, 0.1495, 0.025)
@@ -26,5 +28,25 @@ shape = SubResource("BoxShape3D_grip")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.16195, 0)
 shape = SubResource("BoxShape3D_blade")
 
-[node name="Grabbable" type="Node" parent="." unique_id=347443294]
+[node name="Grabbable" type="Node" parent="." unique_id=347443294 node_paths=PackedStringArray("handles")]
 script = ExtResource("2_grabbable")
+handles = [NodePath("../Grip")]
+
+[node name="Striker" type="Node" parent="."]
+script = ExtResource("3_striker")
+
+[node name="EdgeA" type="Marker3D" parent="."]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.0244, 0.16195, 0)
+script = ExtResource("4_sharp")
+length = 0.1919
+
+[node name="EdgeB" type="Marker3D" parent="."]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.0244, 0.16195, 0)
+script = ExtResource("4_sharp")
+length = 0.1919
+
+[node name="Point" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0.2579, 0)
+script = ExtResource("4_sharp")
+reach = 0.03
+max_angle = 35

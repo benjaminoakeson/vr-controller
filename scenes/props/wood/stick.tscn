@@ -1,0 +1,28 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" uid="uid://btim7lx7a42du" path="res://assets/models/wood/stick.glb" id="1_model"]
+[ext_resource type="Script" uid="uid://dg7iv2u86r00u" path="res://scripts/props/grabbable.gd" id="2_grabbable"]
+[ext_resource type="Script" uid="uid://drgvvw7c8uncj" path="res://scripts/strike/striker.gd" id="3_striker"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_stick"]
+height = 0.463
+radius = 0.034
+
+[node name="Stick" type="RigidBody3D"]
+collision_layer = 2
+collision_mask = 315
+mass = 2.5
+angular_damp = 6.0
+max_contacts_reported = 4
+
+[node name="Model" parent="." instance=ExtResource("1_model")]
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+shape = SubResource("CylinderShape3D_stick")
+
+[node name="Grabbable" type="Node" parent="." node_paths=PackedStringArray("handles")]
+script = ExtResource("2_grabbable")
+handles = [NodePath("../Shape")]
+
+[node name="Striker" type="Node" parent="."]
+script = ExtResource("3_striker")

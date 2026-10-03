@@ -50,7 +50,8 @@ func contribute(frame: LocomotionFrame, delta: float) -> void:
 		else:
 			frame.lift_speed = _speed_for(remaining, body)
 		return
-	if not physical.ground.supported or wanted.is_zero_approx():
+	# Climbing, the hands move the body; no step lift starts.
+	if not physical.ground.supported or wanted.is_zero_approx() or physical.climbing():
 		return
 	var rise := _step_ahead(body, wanted, delta)
 	if rise > 0.0:

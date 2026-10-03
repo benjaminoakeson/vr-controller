@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" uid="uid://dvktcs4rujyoa" path="res://assets/models/props/bellows.glb" id="1_model"]
+
+[node name="Bellows" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_model")]

@@ -12,12 +12,16 @@
 [ext_resource type="Script" uid="uid://bc3bdhh2eck1r" path="res://scripts/physical/locomotion/crouch.gd" id="10_crouch"]
 [ext_resource type="Script" uid="uid://c64x7utk4la30" path="res://scripts/physical/locomotion/step_assist.gd" id="11_step"]
 [ext_resource type="Script" uid="uid://cm8lsifs651dp" path="res://scripts/physical/locomotion/jump.gd" id="12_jump"]
-[ext_resource type="Script" path="res://scripts/physical/hand_drive.gd" id="13_hand"]
-[ext_resource type="Script" path="res://scripts/physical/hand_fingers.gd" id="14_fingers"]
-[ext_resource type="Script" path="res://scripts/physical/body_parts.gd" id="15_parts"]
-[ext_resource type="Script" path="res://scripts/physical/hand_grab.gd" id="16_grab"]
+[ext_resource type="Script" uid="uid://djs21fve0er42" path="res://scripts/physical/locomotion/snap_turn.gd" id="12_y5i42"]
+[ext_resource type="Script" uid="uid://cm2rkhktoopib" path="res://scripts/physical/hand_drive.gd" id="13_hand"]
+[ext_resource type="Script" uid="uid://dgxyf0u8itba8" path="res://scripts/physical/locomotion/leg_tuck.gd" id="13_r5ceq"]
+[ext_resource type="Script" uid="uid://or3e4kcs2122" path="res://scripts/physical/hand_fingers.gd" id="14_fingers"]
+[ext_resource type="Script" uid="uid://dws2vnyd2fss7" path="res://scripts/physical/body_parts.gd" id="15_parts"]
+[ext_resource type="Script" uid="uid://drgvvw7c8uncj" path="res://scripts/strike/striker.gd" id="15_pt035"]
+[ext_resource type="Script" uid="uid://3u7t0kjcj1jq" path="res://scripts/physical/hand_grab.gd" id="16_grab"]
+[ext_resource type="Script" uid="uid://bqlv2wocdkxjd" path="res://scripts/physical/hand_strikes.gd" id="17_strikes"]
 
-[node name="Physical" type="Node3D" unique_id=779459554 node_paths=PackedStringArray("carrier", "body", "ground", "locomotion", "left_drive", "right_drive", "left_fingers", "right_fingers", "body_parts", "left_grab", "right_grab")]
+[node name="Physical" type="Node3D" unique_id=779459554 node_paths=PackedStringArray("carrier", "body", "ground", "locomotion", "left_drive", "right_drive", "left_fingers", "right_fingers", "body_parts", "left_grab", "right_grab", "left_strikes", "right_strikes")]
 script = ExtResource("1_physical")
 carrier = NodePath("RigCarrier")
 body = NodePath("Body")
@@ -27,9 +31,11 @@ left_drive = NodePath("LeftHandDrive")
 right_drive = NodePath("RightHandDrive")
 left_fingers = NodePath("LeftFingers")
 right_fingers = NodePath("RightFingers")
+body_parts = NodePath("BodyParts")
 left_grab = NodePath("LeftGrab")
 right_grab = NodePath("RightGrab")
-body_parts = NodePath("BodyParts")
+left_strikes = NodePath("LeftStrikes")
+right_strikes = NodePath("RightStrikes")
 
 [node name="RigCarrier" type="Node" parent="." unique_id=1059108985]
 script = ExtResource("2_carrier")
@@ -78,53 +84,74 @@ script = ExtResource("11_step")
 [node name="Jump" type="Node" parent="Locomotion" unique_id=161518344]
 script = ExtResource("12_jump")
 
+[node name="SnapTurn" type="Node" parent="Locomotion" unique_id=1363390560]
+script = ExtResource("12_y5i42")
+
 [node name="Crouch" type="Node" parent="Locomotion" unique_id=628830126]
 script = ExtResource("10_crouch")
 
-[node name="LeftHand" type="RigidBody3D" parent="."]
+[node name="LegTuck" type="Node" parent="Locomotion" unique_id=2021077064]
+script = ExtResource("13_r5ceq")
+
+[node name="LeftHand" type="RigidBody3D" parent="." unique_id=1820743506]
 top_level = true
 collision_layer = 32
 collision_mask = 3
-mass = 1.0
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="LeftHand"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="LeftHand" unique_id=598951268]
 
-[node name="LeftHandDrive" type="Generic6DOFJoint3D" parent="." node_paths=PackedStringArray("hand")]
+[node name="Striker" type="Node" parent="LeftHand" unique_id=631326390]
+script = ExtResource("15_pt035")
+
+[node name="LeftHandDrive" type="Generic6DOFJoint3D" parent="." unique_id=765742175 node_paths=PackedStringArray("hand")]
 top_level = true
 script = ExtResource("13_hand")
-side = 0
 hand = NodePath("../LeftHand")
+wrist_strength = 120.0
 
-[node name="RightHand" type="RigidBody3D" parent="."]
+[node name="RightHand" type="RigidBody3D" parent="." unique_id=1560545852]
 top_level = true
 collision_layer = 32
 collision_mask = 3
-mass = 1.0
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="RightHand"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RightHand" unique_id=1162458766]
 
-[node name="RightHandDrive" type="Generic6DOFJoint3D" parent="." node_paths=PackedStringArray("hand")]
+[node name="Striker" type="Node" parent="RightHand" unique_id=2109947854]
+script = ExtResource("15_pt035")
+
+[node name="RightHandDrive" type="Generic6DOFJoint3D" parent="." unique_id=219047002 node_paths=PackedStringArray("hand")]
 top_level = true
 script = ExtResource("13_hand")
 side = 1
 hand = NodePath("../RightHand")
+wrist_strength = 120.0
 
-[node name="LeftFingers" type="Node" parent="." node_paths=PackedStringArray("drive")]
+[node name="LeftFingers" type="Node" parent="." unique_id=1338098805 node_paths=PackedStringArray("drive")]
 script = ExtResource("14_fingers")
 drive = NodePath("../LeftHandDrive")
 
-[node name="RightFingers" type="Node" parent="." node_paths=PackedStringArray("drive")]
+[node name="RightFingers" type="Node" parent="." unique_id=839236444 node_paths=PackedStringArray("drive")]
 script = ExtResource("14_fingers")
 drive = NodePath("../RightHandDrive")
 
-[node name="LeftGrab" type="Node" parent="." node_paths=PackedStringArray("drive")]
+[node name="LeftGrab" type="Node" parent="." unique_id=262613600 node_paths=PackedStringArray("drive")]
 script = ExtResource("16_grab")
 drive = NodePath("../LeftHandDrive")
 
-[node name="RightGrab" type="Node" parent="." node_paths=PackedStringArray("drive")]
+[node name="RightGrab" type="Node" parent="." unique_id=586448625 node_paths=PackedStringArray("drive")]
 script = ExtResource("16_grab")
 drive = NodePath("../RightHandDrive")
 
-[node name="BodyParts" type="Node" parent="." node_paths=PackedStringArray("body")]
+[node name="BodyParts" type="Node" parent="." unique_id=1156602938 node_paths=PackedStringArray("body")]
 script = ExtResource("15_parts")
 body = NodePath("../Body")
+
+[node name="LeftStrikes" type="Node" parent="." node_paths=PackedStringArray("grab", "striker")]
+script = ExtResource("17_strikes")
+grab = NodePath("../LeftGrab")
+striker = NodePath("../LeftHand/Striker")
+
+[node name="RightStrikes" type="Node" parent="." node_paths=PackedStringArray("grab", "striker")]
+script = ExtResource("17_strikes")
+grab = NodePath("../RightGrab")
+striker = NodePath("../RightHand/Striker")

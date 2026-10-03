@@ -27,7 +27,14 @@ extends RefCounted
 ##
 ## Only what the hand holds costs strength (the player's real arm already moves
 ## the real arm): with nothing held the command is the target exactly and the
-## arm is 1:1. Letting go, it is the target at once, and the hand's drive
+## arm is 1:1. And the body's walking does not cost it (rung 8.2, 2026-10-02):
+## the body carries the arm and what it holds along, as fast as legs speed a
+## body up or slow it down (max_carry_acceleration; a harder stop, against a
+## wall, the arm takes), and the legs pay for that (CapsuleBody). Lagging in
+## the world instead, a 10 kg box held while running trailed the player's hand
+## by up to 2 m (the legs ran away from the arm), and the player felt their
+## hand dragged behind. The body's rising and falling is the arm's to take.
+## Letting go, it is the target at once, and the hand's drive
 ## closes the gap as it closes any jump of its target, without overshooting
 ## (a follower catching up smoothly but fast ran the hand 18 mm past after
 ## letting go of 10 kg, 2026-09-26).
@@ -53,6 +60,13 @@ var free_acceleration := 400.0 # m/s²
 var free_angular_acceleration := 3000.0 # rad/s²
 var max_speed := 10.0 # m/s
 var max_spin := 40.0 # rad/s
+## The most of the body's horizontal speeding up or slowing down that carries
+## the follower along; beyond it (a stop against a wall) the arm takes it.
+var max_carry_acceleration := 15.0 # m/s²
+## The furthest the wrist may be from the shoulder, m: a load lagging or
+## sagging there is carried with the shoulder by the straight arm, never left
+## behind it.
+var reach := INF
 ## Braking uses this share of the limit, leaving margin so it never
 ## overshoots.
 var brake_margin := 0.85
@@ -85,6 +99,11 @@ var _hold: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
 var _moment: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
 var _turn_inertia := Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO)
 var _can_lift := true
+# The body's horizontal velocity and acceleration, as far as it carries the
+# arm along (_carried_by), once known.
+var _carry_velocity := Vector3.ZERO
+var _carry_acceleration := Vector3.ZERO
+var _carry_known := false
 
 
 ## What the hand holds: mass (kg), its centre and its inertia about that
@@ -114,22 +133,33 @@ func reset(wrist_target: Vector3, hand_target: Basis) -> void:
 	_last_target = wrist_target
 	_last_basis = hand_basis
 	_started = true
+	_carry_known = false
 
 
-## Moves the command by `offset`, keeping its motion: the player was moved
-## (recentred, respawned), and the arm goes with them.
-func shift(offset: Vector3) -> void:
-	wrist += offset
-	_last_target += offset
+## Turns the command by `turning`, keeping its motion: the player snap
+## turned, and the arm turns with them.
+func turn(turning: Transform3D) -> void:
+	wrist = turning * wrist
+	velocity = turning.basis * velocity
+	acceleration = turning.basis * acceleration
+	hand_basis = turning.basis * hand_basis
+	_spin = turning.basis * _spin
+	_last_target = turning * _last_target
+	_last_basis = turning.basis * _last_basis
+	_carry_velocity = turning.basis * _carry_velocity
+	_carry_acceleration = turning.basis * _carry_acceleration
 
 
-## Shapes this tick's command from the tracked wrist and hand rotation.
-func update(shoulder: Vector3, wrist_target: Vector3, hand_target: Basis, delta: float) -> void:
+## Shapes this tick's command from the tracked wrist and hand rotation, the
+## body moving at `body_velocity`.
+func update(shoulder: Vector3, wrist_target: Vector3, hand_target: Basis, body_velocity: Vector3,
+		delta: float) -> void:
 	if not _started:
 		reset(wrist_target, hand_target)
 	var dipped := _dipped(shoulder, wrist_target, hand_target.orthonormalized())
 	_measure(shoulder)
-	_follow_position(dipped.origin, delta)
+	_carried_by(body_velocity, delta)
+	_follow_position(dipped.origin, shoulder, delta)
 	_follow_rotation(dipped.basis, delta)
 
 
@@ -172,11 +202,24 @@ func _measure(shoulder: Vector3) -> void:
 	_turn_inertia = add(to_world(_load_inertia, hand_basis), point_inertia(load_at - wrist, _load_mass))
 
 
+## Follows how the body carries the arm: its horizontal velocity, changing
+## at most at max_carry_acceleration.
+func _carried_by(body_velocity: Vector3, delta: float) -> void:
+	var horizontal := Vector3(body_velocity.x, 0.0, body_velocity.z)
+	if not _carry_known:
+		_carry_velocity = horizontal
+		_carry_known = true
+	_carry_acceleration = ((horizontal - _carry_velocity) / delta).limit_length(max_carry_acceleration)
+	_carry_velocity += _carry_acceleration * delta
+
+
 ## Moves the follower toward `target`: this tick within the arm's strength,
 ## otherwise at the largest acceleration it has, never faster toward it than
-## it could stop there, and never up while the arm cannot lift the load.
+## it could stop there, and never up while the arm cannot lift the load. All
+## of it on top of how the body carries the follower along, and never beyond
+## the arm's reach of `shoulder`.
 ## Holding nothing, it is the target, moving as it does, however it jumps.
-func _follow_position(target: Vector3, delta: float) -> void:
+func _follow_position(target: Vector3, shoulder: Vector3, delta: float) -> void:
 	var target_velocity := (target - _last_target) / delta
 	_last_target = target
 	if not shaping():
@@ -184,29 +227,38 @@ func _follow_position(target: Vector3, delta: float) -> void:
 		velocity = target_velocity
 		wrist = target
 		return
-	# Across the line to the target it moves as the target does; along it, no
-	# faster than it could still stop at the target, and at most the rest of
-	# the way this tick.
+	# As the body carries it: across the line to the target it moves as the
+	# target does; along it, no faster than it could still stop at the target,
+	# and at most the rest of the way this tick.
+	var carried := _carry_velocity
+	var relative := target_velocity - carried
 	var gap := target - wrist
 	var distance := gap.length()
-	var wanted := target_velocity
+	var wanted := relative
 	if distance > 1e-7:
 		var toward := gap / distance
 		var braking := _acceleration_limit(-toward, true) * brake_margin
-		var along := minf(target_velocity.dot(toward) + distance / delta,
+		var along := minf(relative.dot(toward) + distance / delta,
 				_braking_speed(distance, braking, delta))
-		wanted = target_velocity.slide(toward) + toward * along
+		wanted = relative.slide(toward) + toward * along
 	if not _can_lift:
 		wanted.y = minf(wanted.y, 0.0)
-	wanted = wanted.limit_length(max_speed)
-	var change := (wanted - velocity) / delta
+	wanted = wanted.limit_length(max_speed) + carried
+	var change := (wanted - velocity) / delta - _carry_acceleration
 	var size := change.length()
-	acceleration = Vector3.ZERO
+	acceleration = _carry_acceleration
 	if size > 1e-9:
 		var direction := change / size
-		acceleration = direction * minf(size, _acceleration_limit(direction, direction.dot(velocity) < 0.0))
+		acceleration += direction * minf(size, _acceleration_limit(direction, direction.dot(velocity - carried) < 0.0))
 	velocity += acceleration * delta
 	wrist += velocity * delta
+	# Within the arm's reach: a straight arm takes the load along with the
+	# shoulder, and the arm cannot stretch past it.
+	var out := wrist - shoulder
+	if out.length() > reach:
+		var away := out.normalized()
+		wrist = shoulder + away * reach
+		velocity -= away * maxf((velocity - carried).dot(away), 0.0)
 
 
 ## Turns the follower toward `target` as the wrist's strength allows.

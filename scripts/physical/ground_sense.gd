@@ -7,6 +7,8 @@ extends Node
 ##
 ## A ball a little smaller than the capsule is swept down from the centre of
 ## its lower hemisphere, so it never starts touching a wall the body leans on.
+## With the legs drawn up (CapsuleBody.tuck) it is the capsule's bottom that
+## stands or not, and "the feet" below mean that bottom.
 ## A hit counts as support when it is close enough under the feet, flat enough
 ## to stand on, and the body is not moving away from it faster than a jump.
 ##
@@ -41,7 +43,8 @@ var stepping_down := false
 var normal := Vector3.UP
 ## Velocity of whatever the body stands on, in m/s.
 var support_velocity := Vector3.ZERO
-## Distance from the feet down to the ground found, in metres; INF if none.
+## Distance from the capsule's bottom down to the ground found, in metres;
+## INF if none.
 var gap := INF
 
 var _body: CapsuleBody
@@ -65,7 +68,6 @@ func _ready() -> void:
 	sensor.shape = _ball
 	sensor.enabled = false
 	sensor.add_exception(_body)
-	sensor.position = Vector3.UP * _body.radius
 	_probe = PhysicsRayQueryParameters3D.new()
 	_probe.collision_mask = STATIC_LAYER
 	_probe.exclude = [_body.get_rid()]
@@ -93,7 +95,7 @@ func sense(delta: float) -> void:
 	if _jumped or _since_supported > step_down_grace or _body.linear_velocity.y > 0.1 \
 			or _body.global_position.y > _support_height + 0.01:
 		return
-	var feet := _body.global_position
+	var feet := _body.global_position + Vector3.UP * _body.tuck
 	_step_ray.from = feet + Vector3.UP * _inset
 	_step_ray.to = feet + Vector3.DOWN * step_down_reach
 	var hit := _body.get_world_3d().direct_space_state.intersect_ray(_step_ray)
@@ -114,6 +116,7 @@ func note_jump() -> void:
 ## Sweeps down to `reach` below the feet; true if something was hit, with
 ## `gap`, `normal` and `support_velocity` set from it.
 func _sweep(reach: float) -> bool:
+	sensor.position = Vector3.UP * (_body.radius + _body.tuck)
 	sensor.target_position = Vector3.DOWN * (_inset + reach)
 	sensor.force_shapecast_update()
 	if not sensor.is_colliding():

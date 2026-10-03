@@ -1,0 +1,22 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://cikau47lpoe1h" path="res://scripts/debug/physical_debug.gd" id="1_view"]
+[ext_resource type="PackedScene" uid="uid://c0aiqw5xvcos5" path="res://assets/models/player/body1.glb" id="2_model"]
+[ext_resource type="Script" path="res://scripts/visual/pose_mapper.gd" id="3_mapper"]
+[ext_resource type="Script" uid="uid://f5u0j1ao14os" path="res://scripts/visual/mirror_only_parts.gd" id="4_mirror_only"]
+
+[node name="Visual" type="Node3D"]
+
+[node name="PhysicalDebug" type="Node3D" parent="." unique_id=194345307]
+script = ExtResource("1_view")
+
+[node name="CharacterModel" parent="." instance=ExtResource("2_model")]
+
+[node name="MirrorOnlyParts" type="Node" parent="." node_paths=PackedStringArray("model_mesh")]
+script = ExtResource("4_mirror_only")
+model_mesh = NodePath("../CharacterModel/Body1_Fit_Rig/Skeleton3D/Body1_Fit")
+
+[node name="PoseMapper" type="Node" parent="." node_paths=PackedStringArray("skeleton", "model")]
+script = ExtResource("3_mapper")
+skeleton = NodePath("../CharacterModel/Body1_Fit_Rig/Skeleton3D")
+model = NodePath("../CharacterModel")

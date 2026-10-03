@@ -1,0 +1,24 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" uid="uid://dijjy1pc68bvo" path="res://assets/environment/ore_veins/ore_vein_copper.glb" id="1_copper"]
+[ext_resource type="PackedScene" uid="uid://pqpk04ybyjss" path="res://assets/environment/ore_veins/ore_vein_iron.glb" id="2_iron"]
+[ext_resource type="PackedScene" uid="uid://sp73ef4g1sy8" path="res://assets/environment/ore_veins/ore_vein_gold.glb" id="3_gold"]
+[ext_resource type="PackedScene" uid="uid://ew2c6w4qvj0l" path="res://assets/environment/ore_veins/ore_vein_silver.glb" id="4_silver"]
+[ext_resource type="PackedScene" uid="uid://kow84whi1ojk" path="res://assets/environment/ore_veins/ore_vein_cobalt.glb" id="5_cobalt"]
+
+[node name="OreVeins" type="Node3D"]
+
+[node name="CopperVein" parent="." instance=ExtResource("1_copper")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0, -0.344, 9)
+
+[node name="IronVein" parent="." instance=ExtResource("2_iron")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.0, -0.427, 9)
+
+[node name="GoldVein" parent="." instance=ExtResource("3_gold")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0, -0.553, 9)
+
+[node name="SilverVein" parent="." instance=ExtResource("4_silver")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.0, -0.72, 9)
+
+[node name="CobaltVein" parent="." instance=ExtResource("5_cobalt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.0, -0.905, 9)

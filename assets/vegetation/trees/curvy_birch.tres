@@ -1,0 +1,79 @@
+[gd_resource type="Resource" script_class="TreeSpecies" format=3 uid="uid://chgjoxf3r21f8"]
+
+[ext_resource type="Script" uid="uid://d8pm3x538b1n" path="res://scripts/trees/tree_species.gd" id="1_lhhfo"]
+[ext_resource type="Material" path="res://assets/vegetation/trees/tree_leaf_birch.tres" id="2_gn50j"]
+[ext_resource type="Script" uid="uid://bdks03cedap0f" path="res://scripts/trees/tree_branch_level.gd" id="2_oisgv"]
+[ext_resource type="Material" path="res://assets/vegetation/trees/tree_wood_birch.tres" id="4_ida6p"]
+
+[sub_resource type="Curve" id="Curve_lhhfo"]
+_data = [Vector2(0, 1), 0.0, -0.5, 1, 1, Vector2(1, 0.5), -0.5, 0.0, 1, 1]
+point_count = 2
+
+[sub_resource type="Resource" id="Resource_oisgv"]
+script = ExtResource("2_oisgv")
+segments_min = 6
+segments_max = 8
+length_along_parent = SubResource("Curve_lhhfo")
+radius_ratio = 0.45
+start_fraction = 0.35
+density_per_m = 1.3
+spread_angle_deg = 35.0
+leaf_start_fraction = 0.2
+min_radius_m = 0.01
+bend_deg_per_m = 30.0
+bend_frequency = 0.5
+up_bias_deg_per_m = 6.0
+smooth_mesh = true
+smooth_subdivisions = 1
+
+[sub_resource type="Resource" id="Resource_gn50j"]
+script = ExtResource("2_oisgv")
+segments_min = 2
+segments_max = 3
+start_fraction = 0.2
+end_fraction = 1.0
+density_per_m = 2.5
+leaves_per_m = 4.5
+leaf_start_fraction = 0.2
+min_radius_m = 0.004
+bend_deg_per_m = 20.0
+bend_frequency = 0.8
+up_bias_deg_per_m = -35.0
+smooth_mesh = true
+smooth_subdivisions = 1
+
+[sub_resource type="Curve" id="Curve_ida6p"]
+_data = [Vector2(0, 1), 0.0, -0.8, 0, 0, Vector2(1, 0.2), -0.8, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Resource" id="Resource_tbw2e"]
+script = ExtResource("2_oisgv")
+segments_min = 18
+segments_max = 22
+base_radius_m = 0.17
+leaves_per_m = 0.3
+leaf_start_fraction = 0.2
+leaf_spacing_jitter = 1.0
+tip_leaves = 3
+girth_falloff = SubResource("Curve_ida6p")
+min_radius_m = 0.025
+bend_deg_per_m = 25.0
+bend_frequency = 0.25
+up_bias_deg_per_m = 4.0
+smooth_mesh = true
+smooth_subdivisions = 1
+
+[resource]
+script = ExtResource("1_lhhfo")
+trunk = SubResource("Resource_tbw2e")
+branch_levels = Array[ExtResource("2_oisgv")]([SubResource("Resource_oisgv"), SubResource("Resource_gn50j")])
+wood_material = ExtResource("4_ida6p")
+bark_tile_width_m = 0.5
+bark_tile_height_m = 0.5
+leaf_style = 1
+leaf_material = ExtResource("2_gn50j")
+leaf_size_m = 0.8
+leaf_angle_deg = 30.0
+leaf_angle_jitter_deg = 15.0
+leaf_card_aspect = 1.0
+leaf_card_stem = Vector2(0.03, 0.66)

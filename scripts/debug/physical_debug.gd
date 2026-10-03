@@ -1,20 +1,28 @@
 class_name PhysicalDebug
 extends Node3D
 
-## Shows where the physical hands are: each palm's box, white when the drive
-## is relaxed and red when it pushes at full strength, each finger bone as a
-## capsule, the body parts (torso, limbs, head) in their own shapes, blue, and
-## each hand's grab: a dot at the hand's grab point and one at the object's,
-## joined by a line, yellow for a candidate, orange while pulling it in and
-## green while holding it.
-## Debug only; it reads the physical layer's snapshot and writes nothing back.
+## Shows the physical layer: the body's collision capsule, faint; each palm's
+## box, white when the drive is relaxed and red when it pushes at full
+## strength; each finger bone as a capsule; the body parts (torso, limbs,
+## head) in their own shapes, blue; and each hand's grab: a dot at the hand's
+## grab point and one at the object's, joined by a line, yellow for a
+## candidate, orange while pulling it in and green while holding it.
+## The player shows it in every run, from its Visual slot, until the character
+## model takes that slot (2026-09-27). It reads the physical layer's snapshot
+## and writes nothing back.
 
 const RELAXED := Color(1.0, 1.0, 1.0, 0.6)
 const STRAINED := Color(1.0, 0.1, 0.05, 0.8)
 const BODY_PART := Color(0.35, 0.6, 1.0, 0.35)
+## Faint: the capsule encloses the body parts. Its axis stands under the
+## head's centre, 10 cm behind the eyes, so the eyes sit about 2 cm above its
+## rounded top: looking down, a thin band of it shows 5 to 8 cm away.
+const BODY := Color(0.85, 0.9, 1.0, 0.12)
 const GRAB_COLOURS: Array[Color] = [Color(1.0, 0.9, 0.1), Color(1.0, 0.55, 0.1), Color(0.2, 1.0, 0.3)]
 
 var _physical: PlayerPhysical
+var _body: MeshInstance3D
+var _body_mesh := CapsuleMesh.new()
 var _palms: Array[MeshInstance3D] = []
 var _materials: Array[StandardMaterial3D] = []
 var _box := BoxMesh.new()
@@ -33,6 +41,18 @@ func attach(physical: PlayerPhysical) -> void:
 
 
 func _ready() -> void:
+	var body_material := StandardMaterial3D.new()
+	body_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	body_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	body_material.albedo_color = BODY
+	_body_mesh.radial_segments = 16
+	_body_mesh.rings = 4
+	_body = MeshInstance3D.new()
+	_body.mesh = _body_mesh
+	_body.material_override = body_material
+	_body.top_level = true
+	_body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_body)
 	for i in 2:
 		var material := StandardMaterial3D.new()
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -80,19 +100,37 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if not is_visible_in_tree():
+		return
 	var state := _physical.snapshot
+	_show_body(state)
 	var visible_hands := state.hand_strength > 0.0
 	if visible_hands and not _box.size.is_equal_approx(state.palm_size):
 		_box.size = state.palm_size
 	for i in 2:
 		_palms[i].visible = visible_hands
 		if visible_hands:
-			_palms[i].global_transform = state.hands[i]
+			_palms[i].global_transform = state.hands[i].translated_local(Vector3(0.0, 0.0, -state.palm_shift))
 			_materials[i].albedo_color = RELAXED.lerp(STRAINED,
 					clampf(state.hand_force[i] / state.hand_strength, 0.0, 1.0))
 	_show_fingers(state)
 	_show_body_parts(state)
 	_show_grabs(state)
+
+
+## The body's collision capsule: its feet at the body's position (its bottom
+## above them by the legs' tuck), resized only when the capsule is.
+func _show_body(state: PoseSnapshot) -> void:
+	_body.visible = state.body_radius > 0.0
+	if not _body.visible:
+		return
+	var length := state.body_height - state.body_tuck
+	if not is_equal_approx(_body_mesh.radius, state.body_radius) \
+			or not is_equal_approx(_body_mesh.height, length):
+		_body_mesh.radius = state.body_radius
+		_body_mesh.height = length
+	_body.global_transform = Transform3D(Basis.IDENTITY,
+			state.body_position + Vector3.UP * (state.body_tuck + length * 0.5))
 
 
 ## Each hand's grab point, its candidate's or held object's grab point, and a

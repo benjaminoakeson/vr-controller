@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://e30eypqc6epi"]
+
+[ext_resource type="Material" uid="uid://pre7vba40reh" path="res://assets/effects/fire/fire_flames.tres" id="1_flames"]
+[ext_resource type="Script" uid="uid://dnnru52pe76ys" path="res://scripts/effects/fire_light.gd" id="2_light"]
+[ext_resource type="Material" uid="uid://bh0vixfjcq6px" path="res://assets/effects/fire/fire_smoke.tres" id="3_smoke"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_card"]
+subdivide_depth = 6
+
+[sub_resource type="MultiMesh" id="MultiMesh_flames"]
+transform_format = 1
+instance_count = 24
+visible_instance_count = 16
+mesh = SubResource("QuadMesh_card")
+buffer = PackedFloat32Array(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0)
+
+[sub_resource type="QuadMesh" id="QuadMesh_puff"]
+
+[sub_resource type="MultiMesh" id="MultiMesh_smoke"]
+transform_format = 1
+instance_count = 12
+visible_instance_count = 8
+mesh = SubResource("QuadMesh_puff")
+buffer = PackedFloat32Array(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0)
+
+[node name="Fire" type="Node3D" unique_id=22108794]
+
+[node name="Flames" type="MultiMeshInstance3D" parent="." unique_id=1530400369]
+material_override = ExtResource("1_flames")
+cast_shadow = 0
+custom_aabb = AABB(-0.9, -0.1, -0.9, 1.8, 1.25, 1.8)
+gi_mode = 0
+visibility_range_end = 50.0
+multimesh = SubResource("MultiMesh_flames")
+
+[node name="Smoke" type="MultiMeshInstance3D" parent="." unique_id=126367329]
+layers = 8
+material_override = ExtResource("3_smoke")
+cast_shadow = 0
+custom_aabb = AABB(-1.3, 0.2, -1.3, 2.6, 2.6, 2.6)
+gi_mode = 0
+visibility_range_end = 50.0
+multimesh = SubResource("MultiMesh_smoke")
+
+[node name="Light" type="OmniLight3D" parent="." unique_id=1641961516]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
+light_color = Color(1, 0.55, 0.25, 1)
+light_energy = 0.7
+light_cull_mask = 4294967287
+distance_fade_enabled = true
+distance_fade_begin = 20.0
+distance_fade_length = 5.0
+omni_range = 4.0
+script = ExtResource("2_light")

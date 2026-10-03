@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://reft77kt4eob"]
 
-[ext_resource type="Script" path="res://scripts/physical/kinematic_physical.gd" id="1_physical"]
+[ext_resource type="Script" uid="uid://e6q4segttr1b" path="res://scripts/physical/kinematic_physical.gd" id="1_physical"]
 [ext_resource type="Script" uid="uid://bxqjsf0kt1n2u" path="res://scripts/physical/player_body.gd" id="5_body"]
 
 [node name="Physical" type="Node3D" unique_id=953097040 node_paths=PackedStringArray("body")]

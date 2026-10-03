@@ -1,0 +1,44 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/weapons/axe.glb" id="1_model"]
+[ext_resource type="Script" uid="uid://dg7iv2u86r00u" path="res://scripts/props/grabbable.gd" id="2_grabbable"]
+[ext_resource type="Script" uid="uid://drgvvw7c8uncj" path="res://scripts/strike/striker.gd" id="3_striker"]
+[ext_resource type="Script" uid="uid://dqdatyo8pj3lm" path="res://scripts/strike/sharp.gd" id="4_sharp"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_grip"]
+size = Vector3(0.0458, 0.296, 0.0254)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_head"]
+size = Vector3(0.136, 0.216, 0.029)
+
+[node name="Axe" type="RigidBody3D"]
+collision_layer = 2
+collision_mask = 315
+mass = 1.0
+center_of_mass_mode = 1
+center_of_mass = Vector3(-0.025, -0.07, 0)
+continuous_cd = true
+max_contacts_reported = 4
+
+[node name="Model" parent="." instance=ExtResource("1_model")]
+
+[node name="Grip" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2597, 0)
+shape = SubResource("BoxShape3D_grip")
+
+[node name="Head" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0452, -0.0031, 0)
+shape = SubResource("BoxShape3D_head")
+
+[node name="Grabbable" type="Node" parent="." node_paths=PackedStringArray("handles")]
+script = ExtResource("2_grabbable")
+handles = [NodePath("../Grip")]
+handle_lean = 0.2617994
+
+[node name="Striker" type="Node" parent="."]
+script = ExtResource("3_striker")
+
+[node name="Bit" type="Marker3D" parent="."]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.1132, -0.003, 0)
+script = ExtResource("4_sharp")
+length = 0.216

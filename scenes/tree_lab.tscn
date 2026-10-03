@@ -1,0 +1,76 @@
+[gd_scene format=3]
+
+[ext_resource type="Material" path="res://assets/materials/prototype/dark_green.tres" id="1_2tqiq"]
+[ext_resource type="Script" path="res://scripts/trees/procedural_tree.gd" id="2_5nhv4"]
+[ext_resource type="Script" path="res://scripts/trees/tree_collision_streamer.gd" id="2_sy8pd"]
+[ext_resource type="Resource" path="res://assets/vegetation/trees/straight_pine.tres" id="3_sy8pd"]
+[ext_resource type="Resource" path="res://assets/vegetation/trees/angular_oak.tres" id="4_tal28"]
+[ext_resource type="Resource" path="res://assets/vegetation/trees/curvy_birch.tres" id="5_glu12"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_8tp63"]
+
+[sub_resource type="Sky" id="Sky_0xwmf"]
+sky_material = SubResource("ProceduralSkyMaterial_8tp63")
+
+[sub_resource type="Environment" id="Environment_wdoaq"]
+background_mode = 2
+sky = SubResource("Sky_0xwmf")
+ambient_light_source = 3
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_41q2p"]
+size = Vector2(40, 40)
+
+[node name="TreeLab" type="Node3D" unique_id=370317027]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1132430381]
+environment = SubResource("Environment_wdoaq")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1687104284]
+transform = Transform3D(0.81915206, 0.43938506, -0.36868784, 0, 0.64278764, 0.76604444, 0.57357645, -0.62750685, 0.5265408, 0, 0, 0)
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="." unique_id=1926057335]
+material_override = ExtResource("1_2tqiq")
+mesh = SubResource("PlaneMesh_41q2p")
+
+[node name="Camera" type="Camera3D" parent="." unique_id=1847843010]
+transform = Transform3D(1, 0, 0, 0, 0.9961947, 0.08715574, 0, -0.08715574, 0.9961947, 0, 5, 17)
+
+[node name="Trees" type="Node3D" parent="." unique_id=30448627 node_paths=PackedStringArray("target")]
+script = ExtResource("2_sy8pd")
+target = NodePath("../Camera")
+
+[node name="StraightPine1" type="Node3D" parent="Trees" unique_id=1239332494]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 0)
+script = ExtResource("2_5nhv4")
+species = ExtResource("3_sy8pd")
+tree_seed = 1
+
+[node name="AngularOak1" type="Node3D" parent="Trees" unique_id=1567177764]
+script = ExtResource("2_5nhv4")
+species = ExtResource("4_tal28")
+tree_seed = 1
+
+[node name="CurvyBirch1" type="Node3D" parent="Trees" unique_id=375698398]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 0)
+script = ExtResource("2_5nhv4")
+species = ExtResource("5_glu12")
+tree_seed = 1
+
+[node name="StraightPine2" type="Node3D" parent="Trees" unique_id=1519093317]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, -8)
+script = ExtResource("2_5nhv4")
+species = ExtResource("3_sy8pd")
+tree_seed = 2
+
+[node name="AngularOak2" type="Node3D" parent="Trees" unique_id=1588226319]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, -8)
+script = ExtResource("2_5nhv4")
+species = ExtResource("4_tal28")
+tree_seed = 2
+
+[node name="CurvyBirch2" type="Node3D" parent="Trees" unique_id=808091584]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, -8)
+script = ExtResource("2_5nhv4")
+species = ExtResource("5_glu12")
+tree_seed = 2

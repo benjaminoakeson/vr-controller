@@ -1,0 +1,28 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://pre7vba40reh"]
+
+[ext_resource type="Shader" uid="uid://d07ienjr4fmgv" path="res://assets/effects/fire/fire_flames.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://j08hiua1v0f0" path="res://assets/effects/fire/flame.png" id="2_texture"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/flame_texture = ExtResource("2_texture")
+shader_parameter/base_radius = 0.0999999977648
+shader_parameter/card_height = 0.55
+shader_parameter/card_aspect = 0.60000000521533
+shader_parameter/rim_drop = 0.5
+shader_parameter/lifetime = 2.49999995157063
+shader_parameter/flicker_rate = 0.60000000894072
+shader_parameter/flicker_depth = 0.5999999865888
+shader_parameter/whip = 0.06999999843536
+shader_parameter/whip_waves = 0.80000001192096
+shader_parameter/whip_speed = 1.2500000186265
+shader_parameter/sway = 0.03999999910592
+shader_parameter/gas_rise = 1.1
+shader_parameter/tearing = Vector2(0.7, 1.5)
+shader_parameter/ember_color = Color(0.55, 0.06, 0, 1)
+shader_parameter/flame_color = Color(1, 0.36, 0.03, 1)
+shader_parameter/core_color = Color(1, 0.78, 0.32, 1)
+shader_parameter/energy = 1.3
+shader_parameter/occlusion = 0.5
+shader_parameter/near_fade = Vector2(0.4, 0.15)

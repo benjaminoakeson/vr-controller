@@ -1,4 +1,4 @@
-[gd_resource type="StandardMaterial3D" format=3]
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bp86cb4bg1xt5"]
 
 [resource]
 resource_name = "oak_bark"

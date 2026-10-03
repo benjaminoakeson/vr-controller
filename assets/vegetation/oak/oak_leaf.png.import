@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ce7duc8rci5xs"
 path.s3tc="res://.godot/imported/oak_leaf.png-c462d511de9caf7fb6abf6a9db5f6aa1.s3tc.ctex"
+path.etc2="res://.godot/imported/oak_leaf.png-c462d511de9caf7fb6abf6a9db5f6aa1.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/vegetation/oak/oak_leaf.png"
-dest_files=["res://.godot/imported/oak_leaf.png-c462d511de9caf7fb6abf6a9db5f6aa1.s3tc.ctex"]
+dest_files=["res://.godot/imported/oak_leaf.png-c462d511de9caf7fb6abf6a9db5f6aa1.s3tc.ctex", "res://.godot/imported/oak_leaf.png-c462d511de9caf7fb6abf6a9db5f6aa1.etc2.ctex"]
 
 [params]
 

@@ -1,0 +1,13 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bq3sk4p11cqua"]
+
+[ext_resource type="Texture2D" uid="uid://qjg2kcrskvuj" path="res://assets/materials/wood/wood_albedo.png" id="1_albedo"]
+[ext_resource type="Texture2D" uid="uid://d3obvld646yhi" path="res://assets/materials/wood/wood_normal.png" id="2_normal"]
+[ext_resource type="Texture2D" uid="uid://bddv4oolv6jdt" path="res://assets/materials/wood/wood_roughness.png" id="3_roughness"]
+
+[resource]
+resource_name = "wood"
+albedo_texture = ExtResource("1_albedo")
+roughness_texture = ExtResource("3_roughness")
+normal_enabled = true
+normal_texture = ExtResource("2_normal")
+uv1_triplanar = true

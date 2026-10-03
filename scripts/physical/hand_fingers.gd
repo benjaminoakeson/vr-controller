@@ -27,10 +27,11 @@ extends Node
 ##   as it is and stops the hand.
 ## A joint curls again, toward its pose, as soon as it is free to.
 ##
-## A finger's root sits no further toward the palm side than keeps it flush
-## with the palm's face: the static skeleton's thumb root is 1 cm toward the
-## palm, and at full thickness it would stand proud of the palm, propping a
-## flat hand up off a table and catching on it.
+## Each finger sits where the static skeleton's does, the thumb too, though it
+## stands out in front of the palm: until 2026-10-02 a root was lifted flush
+## with the palm's face, but the player asked for the physical thumb on the
+## model's visible thumb (lifted, it sat inside the palm), so a palm pressed
+## flat on a table rests on it.
 
 const FINGERS := 5
 const PHALANGES := 3
@@ -38,9 +39,11 @@ const PHALANGES := 3
 ## little finger; each bone after the root is a little thinner.
 const ROOT_RADII: Array[float] = [0.0105, 0.009, 0.009, 0.0085, 0.0075]
 const TAPER: Array[float] = [1.0, 0.92, 0.85]
-## Fingers stop on the level, loose props and held props (a hand's own held
-## prop is on the Held layer, which the hand does not collide with).
-const STATIC_AND_DYNAMIC := 1 | 2 | 8
+## Fingers stop on the level, loose props and held props, the hand's own
+## included (a hand's own held prop never collides with it, a collision
+## exception of the prop's, and is on the Seating layer while it comes into
+## the hand).
+const STATIC_AND_DYNAMIC := 1 | 2 | 8 | Grabbable.SEATING_LAYER
 ## How many times a blocked curl is halved looking for how far it can go.
 const SEARCH_STEPS := 4
 ## Each tick's curl is checked in this many steps, so no step moves a
@@ -134,8 +137,11 @@ func attach(rig: PlayerRig, physical: DynamicPhysical) -> void:
 func _ready() -> void:
 	# After the hand drive: the static skeleton has posed this tick's fingers.
 	process_physics_priority = StaticSkeleton.SOLVE_PRIORITY + 6
-	# Contacts are read per finger, and ten fingers' worth may touch at once.
-	_hand.max_contacts_reported = 16
+	# Contacts are read per finger, and ten fingers' worth may touch at once. A
+	# hand of the player model's (2026-10-02) resting on a table reports about 35,
+	# its fingers' expected contacts among them: with 16, the palm's push was
+	# left out and the hand did not count as touching (HandDrive._pressing).
+	_hand.max_contacts_reported = 64
 	_query.collision_mask = STATIC_AND_DYNAMIC
 	_reach_query.collision_mask = STATIC_AND_DYNAMIC
 	_reach_query.shape = _reach_ball
@@ -385,21 +391,13 @@ func _pose(finger: int) -> void:
 
 
 func _build() -> void:
-	var palm_side := _skeleton.palm_direction.normalized()
-	if _left:
-		palm_side.x = -palm_side.x
-	var face := drive.palm_size.x * _skeleton.hand_scale * 0.5
 	for finger in FINGERS:
 		var rests: Array[Transform3D] = []
 		var targets: Array[Node3D] = []
 		var lengths: Vector3 = StaticSkeleton.FINGER_LENGTHS[finger] * _skeleton.hand_scale
 		var root_radius := ROOT_RADII[finger] * thickness * _skeleton.hand_scale
 		for phalanx in PHALANGES:
-			var rest: Transform3D = _skeleton.finger_rest(_left, finger, phalanx)
-			if phalanx == 0:
-				var proud := rest.origin.dot(palm_side) + root_radius - face
-				rest.origin -= palm_side * maxf(proud, 0.0)
-			rests.append(rest)
+			rests.append(_skeleton.finger_rest(_left, finger, phalanx))
 			targets.append(_skeleton.finger_joint(_left, finger, phalanx))
 			var capsule := CapsuleShape3D.new()
 			capsule.radius = ROOT_RADII[finger] * TAPER[phalanx] * thickness * _skeleton.hand_scale

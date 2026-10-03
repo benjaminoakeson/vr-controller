@@ -19,12 +19,13 @@ albedo_texture = ExtResource("2_6fl0g")
 uv1_scale = Vector3(10, 10, 10)
 uv1_triplanar = true
 
-[node name="Rig" type="XROrigin3D" unique_id=167908160 node_paths=PackedStringArray("head", "left_controller", "right_controller", "skeleton")]
+[node name="Rig" type="XROrigin3D" unique_id=167908160 node_paths=PackedStringArray("head", "left_controller", "right_controller", "skeleton", "skeleton_view")]
 script = ExtResource("1_rig")
 head = NodePath("Head")
 left_controller = NodePath("LeftController")
 right_controller = NodePath("RightController")
 skeleton = NodePath("StaticSkeleton")
+skeleton_view = NodePath("StaticSkeleton/SkeletonDebug")
 
 [node name="Head" type="XRCamera3D" parent="." unique_id=260337184]
 

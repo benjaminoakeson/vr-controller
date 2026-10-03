@@ -15,16 +15,19 @@ extends Node
 ##   collides as the palm does and always stays on the physical hand; it sits
 ##   flush with the palm's face, since a forearm thicker than the palm would
 ##   prop a flat hand up off a table;
-## - the thighs, calves and feet, neck and head are shapes on a separate
-##   kinematic body that pushes props but passes into the level. The capsule
-##   already stops the body down to its feet. Calves and feet that the ground
-##   pushed fought walking, stairs and slopes in every locomotion test (the
-##   body slid on, rose off the steps, drifted on the ramp); thighs stopped the
-##   body short of furniture the capsule had not reached, knees in a stride or
-##   a squat reaching past it (the player chose to let them pass, 2026-09-25:
+## - the neck and head are shapes on a separate kinematic body that pushes
+##   props but passes into the level. The head keeps the rung-2 decision that
+##   a head in a wall fades the view rather than pushing back;
+## - the thighs, calves and feet are on that body too, switched off, so they
+##   meet nothing: still posed every tick and published. The capsule already
+##   stops the body down to its feet. Calves and feet that the ground pushed
+##   fought walking, stairs and slopes in every locomotion test (the body slid
+##   on, rose off the steps, drifted on the ramp); thighs stopped the body
+##   short of furniture the capsule had not reached, knees in a stride or a
+##   squat reaching past it (the player chose to let them pass, 2026-09-25:
 ##   "disable the collisions between the world and the feet, calves, and
-##   thighs"). The head keeps the rung-2 decision that a head in a wall fades
-##   the view rather than pushing back.
+##   thighs"). Legs that met props kicked away what the player crouched to
+##   pick up (switched off at the player's request, 2026-10-03).
 ##
 ## The static skeleton stands under the head, but the physical body stands
 ## wherever the world let it, up to the lean limit behind the head. So the hips
@@ -80,6 +83,17 @@ enum Part {
 	LEFT_FOOT, RIGHT_FOOT, NECK, HEAD,
 }
 
+## The parts whose shapes are switched off: they push no props and pass into
+## the level, but are still posed and published.
+const LEG_PARTS: Array[int] = [Part.LEFT_THIGH, Part.RIGHT_THIGH, Part.LEFT_CALF,
+		Part.RIGHT_CALF, Part.LEFT_FOOT, Part.RIGHT_FOOT]
+
+## Where the parts meet, published for the skeletal layer.
+enum Joint {
+	NECK, LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_ELBOW, RIGHT_ELBOW, LEFT_WRIST, RIGHT_WRIST,
+	LEFT_HIP, RIGHT_HIP, LEFT_KNEE, RIGHT_KNEE, LEFT_ANKLE, RIGHT_ANKLE,
+}
+
 ## How far each arm is stretched past its length to stay joined, in metres.
 var arm_stretch := PackedFloat32Array([0.0, 0.0])
 ## How many of the body's parts (not its capsule) something pushed on in the
@@ -116,6 +130,7 @@ func _ready() -> void:
 		var shape := CollisionShape3D.new()
 		shape.name = Part.keys()[part].to_pascal_case()
 		shape.shape = _make_shape(part)
+		shape.disabled = part in LEG_PARTS
 		_owner_of(part).add_child(shape)
 		_shapes.append(shape)
 	_relocations = _physical.carrier.relocations
@@ -127,6 +142,8 @@ func _ready() -> void:
 	state.body_part_shapes.resize(Part.size())
 	for part in Part.size():
 		state.body_part_shapes[part] = _shapes[part].shape
+	state.body_joints.resize(Joint.size())
+	state.body_soles.resize(2)
 
 
 func _physics_process(_delta: float) -> void:
@@ -141,6 +158,11 @@ func _physics_process(_delta: float) -> void:
 	var lower := Vector3(-lead.x, 0.0, -lead.z)
 	var left_hip := s.left_hip_tracker.global_position + lower
 	var right_hip := s.right_hip_tracker.global_position + lower
+	# With the legs drawn up (climbing), the hips ride up to stay above the
+	# capsule's drawn-up bottom, so they do not catch on a ledge it clears.
+	var seat := body.global_position.y + body.tuck + hips_radius
+	left_hip.y = maxf(left_hip.y, seat)
+	right_hip.y = maxf(right_hip.y, seat)
 	var left_knee := s.left_knee_tracker.global_position + lower
 	var right_knee := s.right_knee_tracker.global_position + lower
 	var world := {}
@@ -164,6 +186,18 @@ func _physics_process(_delta: float) -> void:
 		_shapes[part].transform = holder.global_transform.affine_inverse() * world[part]
 		_physical.snapshot.body_parts[part] = world[part]
 	_physical.snapshot.arm_stretch = arm_stretch
+	var joints: Array[Vector3] = _physical.snapshot.body_joints
+	joints[Joint.NECK] = s.neck_tracker.global_position
+	joints[Joint.LEFT_SHOULDER] = s.left_shoulder_tracker.global_position
+	joints[Joint.RIGHT_SHOULDER] = s.right_shoulder_tracker.global_position
+	joints[Joint.LEFT_HIP] = left_hip
+	joints[Joint.RIGHT_HIP] = right_hip
+	joints[Joint.LEFT_KNEE] = left_knee
+	joints[Joint.RIGHT_KNEE] = right_knee
+	joints[Joint.LEFT_ANKLE] = s.left_ankle_tracker.global_position + lower
+	joints[Joint.RIGHT_ANKLE] = s.right_ankle_tracker.global_position + lower
+	_physical.snapshot.body_soles[0] = s.left_foot_tracker.global_transform.orthonormalized().translated(lower)
+	_physical.snapshot.body_soles[1] = s.right_foot_tracker.global_transform.orthonormalized().translated(lower)
 	parts_pressed = _pressed_parts()
 	parts_pressing = _bit_count(parts_pressed)
 	_physical.snapshot.parts_pressing = parts_pressing
@@ -214,6 +248,8 @@ func _pose_arm(side: int, shoulder: Node3D, static_hand: Node3D, static_wrist: N
 	var to := hand.global_transform * wrist_on_hand
 	var elbow := _elbow(side, from, to, drive.elbow_pole(),
 			_skeleton.upper_arm_length, _skeleton.forearm_length)
+	_physical.snapshot.body_joints[Joint.LEFT_ELBOW + side] = elbow
+	_physical.snapshot.body_joints[Joint.LEFT_WRIST + side] = to
 	# The forearm is raised toward the back of the hand until its underside is
 	# flush with the palm's face; the upper arm meets it there.
 	var palm_side := _skeleton.palm_direction.normalized()

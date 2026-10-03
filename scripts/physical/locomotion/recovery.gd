@@ -5,8 +5,11 @@ extends LocomotionModule
 ## - while the head is not tracked, the body holds still (gravity still acts);
 ## - a body that falls out of the level is respawned where it started;
 ## - a head that stays far ahead of the body, which means the player walked
-##   through something the body could not follow, is brought back over it.
-## Both moves happen with the view blacked out.
+##   through something the body could not follow, is brought back over it;
+##   not while climbing (a hand on a hold), where the hands hold the body and
+##   an arm stretched past its reach lets go (HandGrab).
+## Both moves happen with the view blacked out, and let go of any hold first: a
+## hand welded to the world cannot go with the player.
 
 enum Move { NONE, RECENTRE, RESPAWN }
 
@@ -50,7 +53,7 @@ func _watch(carrier: RigCarrier, body: CapsuleBody, delta: float) -> void:
 	if body.global_position.y < kill_height:
 		_start(Move.RESPAWN)
 		return
-	if carrier.head_tracked and carrier.head_lead.length() > lead_limit:
+	if carrier.head_tracked and carrier.head_lead.length() > lead_limit and not physical.climbing():
 		_over_limit_for += delta
 		if _over_limit_for >= lead_limit_time:
 			_start(Move.RECENTRE)
@@ -69,6 +72,7 @@ func _start(move: Move) -> void:
 func _continue_move(carrier: RigCarrier, body: CapsuleBody, delta: float) -> void:
 	_timer += delta
 	if not _moved and _timer >= blackout_time:
+		physical.release_holds()
 		match _pending:
 			Move.RECENTRE:
 				carrier.move_rig(-carrier.head_lead)

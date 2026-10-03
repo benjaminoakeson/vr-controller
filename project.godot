@@ -47,17 +47,20 @@ enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
 3d_physics/layer_7="Interface"
 3d_physics/layer_8="ClimbHold"
 3d_physics/layer_9="Enemy"
+3d_physics/layer_11="Seating"
 
 [physics]
 
 common/physics_ticks_per_second=72
 3d/physics_engine="Jolt Physics"
 jolt_physics_3d/simulation/penetration_slop=0.005
+common/physics_interpolation=true
 
 [rendering]
 
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true
 
 [xr]
 

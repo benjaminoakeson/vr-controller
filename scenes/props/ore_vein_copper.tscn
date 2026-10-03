@@ -1,0 +1,13 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/props/ore_vein.tscn" id="1_vein"]
+[ext_resource type="PackedScene" uid="uid://dijjy1pc68bvo" path="res://assets/environment/ore_veins/ore_vein_copper.glb" id="2_model"]
+[ext_resource type="PackedScene" path="res://scenes/props/ores/copper_ore.tscn" id="3_ore"]
+
+[node name="CopperVein" instance=ExtResource("1_vein")]
+
+[node name="LootDrop" parent="."]
+loot = ExtResource("3_ore")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]
+transform = Transform3D(0.75, 0, 0, 0, 0.75, 0, 0, 0, 0.75, 0, 0, 0)

@@ -1,0 +1,111 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://lxa71jur0l1e" path="res://scripts/strike/strikeable.gd" id="1_strikeable"]
+[ext_resource type="Script" uid="uid://sdj0qg68gngq" path="res://scripts/debug/strike_readout.gd" id="2_readout"]
+[ext_resource type="Resource" path="res://assets/strike/cloth.tres" id="3_cloth"]
+[ext_resource type="Resource" path="res://assets/strike/wood.tres" id="4_wood"]
+[ext_resource type="Resource" path="res://assets/strike/stone.tres" id="5_stone"]
+[ext_resource type="Material" uid="uid://bq3sk4p11cqua" path="res://assets/materials/wood/wood.tres" id="6_wood_look"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_cloth"]
+height = 1.6
+radius = 0.15
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cloth"]
+albedo_color = Color(0.76, 0.66, 0.47, 1)
+roughness = 1.0
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_cloth"]
+material = SubResource("StandardMaterial3D_cloth")
+top_radius = 0.15
+bottom_radius = 0.15
+height = 1.6
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wood"]
+size = Vector3(0.2, 1.6, 0.2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wood"]
+material = ExtResource("6_wood_look")
+size = Vector3(0.2, 1.6, 0.2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_stone"]
+size = Vector3(0.5, 1, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_stone"]
+albedo_color = Color(0.5, 0.5, 0.52, 1)
+roughness = 0.95
+
+[sub_resource type="BoxMesh" id="BoxMesh_stone"]
+material = SubResource("StandardMaterial3D_stone")
+size = Vector3(0.5, 1, 0.5)
+
+[node name="Targets" type="Node3D"]
+
+[node name="ClothDummy" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 1)
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ClothDummy"]
+shape = SubResource("CylinderShape3D_cloth")
+
+[node name="Mesh" type="MeshInstance3D" parent="ClothDummy"]
+mesh = SubResource("CylinderMesh_cloth")
+
+[node name="Strikeable" type="Node" parent="ClothDummy"]
+script = ExtResource("1_strikeable")
+material = ExtResource("3_cloth")
+
+[node name="Readout" type="Label3D" parent="ClothDummy" node_paths=PackedStringArray("strikeable")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+pixel_size = 0.0015
+billboard = 1
+no_depth_test = true
+outline_size = 10
+script = ExtResource("2_readout")
+strikeable = NodePath("../Strikeable")
+
+[node name="WoodPost" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WoodPost"]
+shape = SubResource("BoxShape3D_wood")
+
+[node name="Mesh" type="MeshInstance3D" parent="WoodPost"]
+mesh = SubResource("BoxMesh_wood")
+
+[node name="Strikeable" type="Node" parent="WoodPost"]
+script = ExtResource("1_strikeable")
+material = ExtResource("4_wood")
+
+[node name="Readout" type="Label3D" parent="WoodPost" node_paths=PackedStringArray("strikeable")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+pixel_size = 0.0015
+billboard = 1
+no_depth_test = true
+outline_size = 10
+script = ExtResource("2_readout")
+strikeable = NodePath("../Strikeable")
+
+[node name="StoneBlock" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -1)
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StoneBlock"]
+shape = SubResource("BoxShape3D_stone")
+
+[node name="Mesh" type="MeshInstance3D" parent="StoneBlock"]
+mesh = SubResource("BoxMesh_stone")
+
+[node name="Strikeable" type="Node" parent="StoneBlock"]
+script = ExtResource("1_strikeable")
+material = ExtResource("5_stone")
+
+[node name="Readout" type="Label3D" parent="StoneBlock" node_paths=PackedStringArray("strikeable")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+pixel_size = 0.0015
+billboard = 1
+no_depth_test = true
+outline_size = 10
+script = ExtResource("2_readout")
+strikeable = NodePath("../Strikeable")

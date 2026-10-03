@@ -33,7 +33,6 @@ const GUIDED_STEPS: Array[BaselineChecklist.Step] = [
 ]
 
 @export var readout: Label3D
-@export var physical_debug: PhysicalDebug
 @export_range(0.05, 2.0, 0.05, "suffix:s") var readout_interval := 0.25
 
 ## Measures every tick; records when started. Created by attach().
@@ -54,8 +53,6 @@ var _readout_distance := 0.0
 func attach(rig: PlayerRig, physical: PlayerPhysical) -> void:
 	_rig = rig
 	recorder = LocomotionRecorder.new(physical, rig)
-	if physical_debug != null:
-		physical_debug.attach(physical)
 
 
 func _ready() -> void:
@@ -110,6 +107,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
+	recorder.sample_drawn()
 	_place_readout()
 
 

@@ -1,9 +1,47 @@
 [gd_scene format=3 uid="uid://bdvi3o4lqy1bn"]
 
+[ext_resource type="Texture2D" uid="uid://caikpivbgdcf3" path="res://assets/materials/dirt/DirtTexture.png" id="1_7u3jv"]
+[ext_resource type="Texture2D" uid="uid://cvfduos334o2" path="res://assets/materials/dirt/DirtNormal.png" id="2_ldg48"]
+[ext_resource type="Texture2D" uid="uid://bsj5g4si0u747" path="res://assets/materials/grass/GrassTexture.png" id="3_3pbg1"]
+[ext_resource type="Texture2D" uid="uid://d3apxsn5kl0d7" path="res://assets/materials/grass/GrassHeight.png" id="4_2yu4k"]
+[ext_resource type="Texture2D" uid="uid://b7o0os61km13n" path="res://assets/materials/grass/GrassNormal.png" id="5_evha0"]
+[ext_resource type="Texture2D" uid="uid://csapd0wh37aso" path="res://assets/materials/grass/GrassRoughness.png" id="6_yaqxf"]
+[ext_resource type="Texture2D" uid="uid://c3n5nxwg6ino2" path="res://assets/materials/stone/Stone.png" id="7_fiys7"]
+[ext_resource type="Texture2D" uid="uid://jtw7euhdutwm" path="res://assets/materials/stone/StoneNormal.png" id="8_l1osc"]
+[ext_resource type="Image" uid="uid://b8x0jlluekvmq" path="res://scenes/levels/Plains/Heightmap_0_0.res" id="9_34v43"]
+
+[sub_resource type="TextureSetResource" id="TextureSetResource_sy1x8"]
+name = "dirt"
+albedoTexture = ExtResource("1_7u3jv")
+normalTexture = ExtResource("2_ldg48")
+
+[sub_resource type="TextureSetResource" id="TextureSetResource_b8jqb"]
+name = "grass"
+albedoTexture = ExtResource("3_3pbg1")
+normalTexture = ExtResource("5_evha0")
+roughnessTexture = ExtResource("6_yaqxf")
+heightTexture = ExtResource("4_2yu4k")
+
+[sub_resource type="TextureSetResource" id="TextureSetResource_ut5yi"]
+name = "stone"
+albedoTexture = ExtResource("7_fiys7")
+normalTexture = ExtResource("8_l1osc")
+
+[sub_resource type="TextureSetsResource" id="TextureSetsResource_kgqgv"]
+textureSets = Array[TextureSetResource]([SubResource("TextureSetResource_sy1x8"), SubResource("TextureSetResource_b8jqb"), SubResource("TextureSetResource_ut5yi")])
+
+[sub_resource type="ZoneResource" id="ZoneResource_b701k"]
+heightMapImage = ExtResource("9_34v43")
+
+[sub_resource type="ZonesResource" id="ZonesResource_8jrbr"]
+zones = Array[ZoneResource]([SubResource("ZoneResource_b701k")])
+
 [node name="Plains" type="Node3D" unique_id=1128918218]
 
 [node name="TerraBrush" type="TerraBrush" parent="." unique_id=544450062]
 dataPath = "res://scenes/levels/Plains"
 collisionOnly = true
+textureSets = SubResource("TextureSetsResource_kgqgv")
+terrainZones = SubResource("ZonesResource_8jrbr")
 physics_interpolation_mode = 2
 metadata/_edit_lock_ = false

@@ -1,0 +1,60 @@
+[gd_scene format=3 uid="uid://oyd3ox2yjelw"]
+
+[ext_resource type="Environment" uid="uid://doistbak7qjoo" path="res://assets/environment/forest/forest.tres" id="1_rihv6"]
+[ext_resource type="Texture2D" uid="uid://bsj5g4si0u747" path="res://assets/materials/grass/GrassTexture.png" id="2_ysb74"]
+[ext_resource type="Texture2D" uid="uid://csapd0wh37aso" path="res://assets/materials/grass/GrassRoughness.png" id="3_u3x8v"]
+[ext_resource type="PackedScene" uid="uid://dt3cbqiijijia" path="res://scenes/player/vr_controller.tscn" id="4_335bs"]
+[ext_resource type="Script" uid="uid://cxe6hgitgkll0" path="res://scripts/trees/tree_collision_streamer.gd" id="7_8e26m"]
+[ext_resource type="Script" uid="uid://bsiivgxyhi2wa" path="res://scripts/trees/tree_scatter.gd" id="8_ds541"]
+[ext_resource type="Script" uid="uid://d8pm3x538b1n" path="res://scripts/trees/tree_species.gd" id="9_xqkup"]
+[ext_resource type="Resource" path="res://assets/vegetation/trees/straight_pine.tres" id="10_htuyr"]
+[ext_resource type="Resource" path="res://assets/vegetation/trees/angular_oak.tres" id="11_iurxk"]
+[ext_resource type="Resource" path="res://assets/vegetation/trees/curvy_birch.tres" id="12_jmmgw"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bh0in"]
+size = Vector3(600, 1, 600)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wh7ba"]
+albedo_texture = ExtResource("2_ysb74")
+roughness_texture = ExtResource("3_u3x8v")
+uv1_scale = Vector3(150, 150, 1)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_q6bjl"]
+material = SubResource("StandardMaterial3D_wh7ba")
+size = Vector2(600, 600)
+
+[node name="ForestTest" type="Node3D" unique_id=1416486554]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=2018128245]
+environment = ExtResource("1_rihv6")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1571150467]
+transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 0, 0)
+light_energy = 0.75
+shadow_enabled = true
+directional_shadow_max_distance = 60.0
+
+[node name="Ground" type="StaticBody3D" parent="." unique_id=1888568042]
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape3D" parent="Ground" unique_id=812681758]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+shape = SubResource("BoxShape3D_bh0in")
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground" unique_id=239179011]
+mesh = SubResource("PlaneMesh_q6bjl")
+
+[node name="VrController" parent="." unique_id=788331903 instance=ExtResource("4_335bs")]
+
+[node name="Trees" type="Node3D" parent="." unique_id=847454754 node_paths=PackedStringArray("target")]
+script = ExtResource("7_8e26m")
+target = NodePath("../VrController/Physical/Body")
+
+[node name="Scatter" type="Node3D" parent="." unique_id=1401619357 node_paths=PackedStringArray("streamer")]
+script = ExtResource("8_ds541")
+streamer = NodePath("../Trees")
+species = Array[ExtResource("9_xqkup")]([ExtResource("10_htuyr"), ExtResource("11_iurxk"), ExtResource("12_jmmgw")])
+forest_seed = 2
+area_size_m = Vector2(400, 400)
+tree_count = 2000
+min_spacing_m = 3.0

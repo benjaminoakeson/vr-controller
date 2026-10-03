@@ -13,14 +13,29 @@ extends RigidBody3D
 ## Mass, collision layers and top_level are set in the scene. The invariants
 ## are enforced in _ready, so an inspector edit cannot quietly break them.
 ## Gravity is read from the physics server; gravity_scale is expected to be 1.
+##
+## Carrying (rung 8.2, 2026-10-02), the legs move what the hands hold along
+## with the body (`carried_mass`, what the arms bear), and its weight takes
+## its share of their strength: carried weight W leaves 1 - W / carry_capacity
+## of the legs' force and of the stick's top speed (strength_share()), so a
+## 10 kg box held clear of everything slows a run by a tenth and its speeding
+## up a little more. Decided with the player, who felt the held box drag their
+## hand behind while the legs ran on as if it weighed nothing.
+##
+## Climbing, the legs draw up (LegTuck, 2026-09-28): the capsule's bottom rises
+## by `tuck` while its top stays with the head, so the body can be hauled over
+## a ledge its legs would otherwise catch on. The origin stays where the feet
+## would reach, so drawing the legs up or letting them down moves no view.
 
 @export var collision: CollisionShape3D
-## Looks for headroom before the capsule grows.
+## Looks for room before the capsule grows: headroom above its top, and
+## room below its bottom for drawn-up legs to come down into.
 @export var ceiling_sensor: ShapeCast3D
 
 @export_group("Shape")
 @export_range(0.1, 0.4, 0.01, "suffix:m") var radius := 0.2
-## The capsule is never shorter than this, however low the head goes.
+## The capsule is never shorter than this, however low the head goes or far
+## the legs draw up.
 @export_range(0.4, 1.2, 0.01, "suffix:m") var min_height := 0.6
 ## Height changes smaller than this are ignored, so the shape is not rebuilt
 ## every tick while the head bobs. Also the gap kept below a ceiling.
@@ -34,6 +49,9 @@ extends RigidBody3D
 @export_range(0.0, 5000.0, 10.0, "suffix:N") var leg_force := 900.0
 ## The most the body can steer itself in the air, horizontally.
 @export_range(0.0, 2000.0, 10.0, "suffix:N") var air_force := 150.0
+## The weight the legs could carry and not move at all; less leaves them the
+## rest of their strength (981 N: 100 kg, so 10 kg slows them by a tenth).
+@export_range(100.0, 5000.0, 10.0, "suffix:N") var carry_capacity := 981.0
 
 @export_group("Standing")
 ## Standing still, the legs keep the body where it stands against light
@@ -59,11 +77,21 @@ extends RigidBody3D
 
 ## The capsule's height from the feet to its top, in metres.
 var height := 0.0
+## How far the legs are drawn up: the capsule's bottom this far above the
+## feet, in metres. Zero with the legs down.
+var tuck := 0.0
 ## The motor's force this tick, in newtons.
 var motor_force := Vector3.ZERO
 ## The share of the force the motor asked for that the legs could deliver this
 ## tick, 0 to 1: below 1 while pushing at the limit.
 var drive_share := 1.0
+## What the hands carry along with the body, in kg: the weight the arms bear
+## of what they hold (none of what rests on something). Set each tick before
+## drive().
+var carried_mass := 0.0
+
+## The gap legs let down keep above what they come down on, in metres.
+const LEG_MARGIN := 0.001
 
 var _capsule: CapsuleShape3D
 var _ball: SphereShape3D
@@ -74,6 +102,17 @@ var _anchor := Vector3.ZERO
 ## Whether the legs are holding the body where it stands (see hold_force).
 func is_holding() -> bool:
 	return _holding
+
+
+## What the legs move: the body and what the hands carry, in kg.
+func moved_mass() -> float:
+	return mass + carried_mass
+
+
+## The share of the legs' strength left for moving once they carry what the
+## hands hold, 0 to 1.
+func strength_share() -> float:
+	return clampf(1.0 - carried_mass * absf(get_gravity().y) / carry_capacity, 0.0, 1.0)
 
 
 func _ready() -> void:
@@ -110,16 +149,55 @@ func place_at(feet: Vector3) -> void:
 	_holding = false
 
 
+## Turns the body's motion with the player's snap turn (`turning`, a turn
+## about the vertical), so a walk goes on the way the view now faces. Its
+## place stays: the turn is about the head's centre, which the body stands
+## under (RigCarrier.turn).
+func turn(turning: Basis) -> void:
+	linear_velocity = turning * linear_velocity
+
+
 ## Resizes the capsule toward `target`: shrinking at once, growing only into
 ## headroom the ceiling sensor confirms, so it cannot wedge under a ceiling.
 func fit_height(target: float) -> void:
-	target = maxf(target, min_height)
+	target = maxf(target, tuck + min_height)
 	if target < height - resize_threshold:
 		_set_height(target)
 	elif target > height + resize_threshold:
 		var room := _headroom(target - height)
 		if room > resize_threshold:
 			_set_height(height + room)
+
+
+## Draws the legs up toward `target` (the capsule's bottom that far above the
+## feet) at once, which only takes collision away; lets them down only into
+## the room legroom() finds below, so they never push into anything.
+func fit_tuck(target: float) -> void:
+	target = clampf(target, 0.0, height - min_height)
+	if target > tuck:
+		tuck = target
+		_fit_shape()
+	elif target < tuck:
+		var room := legroom(tuck - target)
+		if room > 0.0:
+			tuck -= room
+			_fit_shape()
+
+
+## How far drawn-up legs can let the capsule's bottom down, up to `drop`:
+## the ceiling sensor's ball, just inside the bottom, swept down.
+func legroom(drop: float) -> float:
+	if drop <= 0.0:
+		return 0.0
+	var inset := radius - _ball.radius
+	var reach := drop + inset + LEG_MARGIN
+	ceiling_sensor.position = Vector3.UP * (tuck + radius)
+	ceiling_sensor.target_position = Vector3.DOWN * reach
+	ceiling_sensor.force_shapecast_update()
+	if not ceiling_sensor.is_colliding():
+		return drop
+	var travel := reach * ceiling_sensor.get_closest_collision_safe_fraction()
+	return clampf(travel - inset - LEG_MARGIN, 0.0, drop)
 
 
 ## Applies the walking motor: one bounded force toward the wanted horizontal
@@ -131,18 +209,21 @@ func fit_height(target: float) -> void:
 ## over the tick.
 func drive(wanted: Vector3, lift_speed: float, ground: GroundSense, delta: float) -> void:
 	var gravity := get_gravity()
+	var moved := moved_mass()
+	var share := strength_share()
+	var legs := leg_force * share
 	if lift_speed > 0.0 or not ground.supported:
 		_holding = false
 	if lift_speed > 0.0:
 		var horizontal := Vector3(linear_velocity.x, 0.0, linear_velocity.z)
-		var push := _limited(mass * (wanted - horizontal) / response_time, leg_force)
-		var up := clampf(mass * ((lift_speed - linear_velocity.y) / lift_response - gravity.y),
-				0.0, step_force)
+		var push := _limited(moved * (wanted - horizontal) / response_time, legs)
+		var up := clampf(moved * ((lift_speed - linear_velocity.y) / lift_response - gravity.y),
+				0.0, step_force * share)
 		motor_force = push + Vector3.UP * up
 	elif ground.stepping_down:
 		var target := wanted + Vector3.DOWN * step_down_speed
-		motor_force = _limited(mass * ((target - linear_velocity) / response_time - gravity),
-				leg_force)
+		motor_force = _limited(moved * ((target - linear_velocity) / response_time - gravity),
+				legs)
 	elif ground.supported:
 		var normal := ground.normal
 		var along_slope := gravity - normal * gravity.dot(normal)
@@ -154,13 +235,13 @@ func drive(wanted: Vector3, lift_speed: float, ground: GroundSense, delta: float
 			target = wanted.slide(normal).normalized() * wanted.length()
 		if _should_hold(target, along_surface):
 			motor_force = _limited(_hold_force(target, along_surface, normal, delta)
-					- mass * along_slope, leg_force)
+					- moved * along_slope, legs)
 		else:
-			motor_force = _limited(mass * ((target - along_surface) / response_time - along_slope),
-					leg_force)
+			motor_force = _limited(moved * ((target - along_surface) / response_time - along_slope),
+					legs)
 	else:
 		var horizontal := Vector3(linear_velocity.x, 0.0, linear_velocity.z)
-		motor_force = _limited(mass * (wanted - horizontal) / response_time, air_force)
+		motor_force = _limited(moved * (wanted - horizontal) / response_time, air_force)
 	apply_central_force(motor_force)
 
 
@@ -190,8 +271,9 @@ func _hold_force(target: Vector3, along_surface: Vector3, normal: Vector3, delta
 	if offset.length() > slip:
 		_anchor -= offset.normalized() * (offset.length() - slip)
 		offset = offset.limit_length(slip)
-	var braking := mass * (target - along_surface) / response_time
-	var extra_damping := maxf(2.0 * sqrt(hold_stiffness * mass) - mass / response_time, 0.0)
+	var moved := moved_mass()
+	var braking := moved * (target - along_surface) / response_time
+	var extra_damping := maxf(2.0 * sqrt(hold_stiffness * moved) - moved / response_time, 0.0)
 	var keeping := (hold_stiffness * offset + extra_damping * (target - along_surface)) \
 			.limit_length(hold_force)
 	return braking + keeping
@@ -229,5 +311,11 @@ func _headroom(rise: float) -> float:
 
 func _set_height(value: float) -> void:
 	height = value
-	_capsule.height = value
-	collision.position = Vector3.UP * (value * 0.5)
+	_fit_shape()
+
+
+## The capsule from `tuck` above the feet to `height`.
+func _fit_shape() -> void:
+	var length := height - tuck
+	_capsule.height = length
+	collision.position = Vector3.UP * (tuck + length * 0.5)

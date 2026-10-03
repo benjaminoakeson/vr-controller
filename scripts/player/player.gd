@@ -18,6 +18,11 @@ const DEBUG_ARGUMENTS: Array[String] = ["--player-debug", "--record-baseline", "
 @export var rig: PlayerRig
 @export var physical: PlayerPhysical
 @export var interface: PlayerInterface
+## Draws the physical layer's shapes in the Visual slot, under the character
+## model; hidden until B shows it.
+@export var physical_view: PhysicalDebug
+## Poses the character model on the physical body (the skeletal layer).
+@export var pose_mapper: PoseMapper
 
 @export_group("Debug")
 ## The recorder, readout and guided session, added only when asked for.
@@ -38,7 +43,11 @@ func _enter_tree() -> void:
 	# before their parent, and the body checks its references when it is.
 	physical.attach_rig(rig)
 	if interface != null:
-		interface.attach(rig, physical)
+		interface.attach(rig, physical, physical_view)
+	if physical_view != null:
+		physical_view.attach(physical)
+	if pose_mapper != null:
+		pose_mapper.attach(physical, rig)
 
 
 func _ready() -> void:

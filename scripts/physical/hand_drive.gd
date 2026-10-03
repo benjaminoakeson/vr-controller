@@ -46,7 +46,10 @@ signal contact_started(other: Node, speed: float)
 enum Side { LEFT, RIGHT }
 
 ## A drive's force on any one axis is at least this share of its limit, so a
-## hand can always resist a push from the side.
+## hand can always resist a push from the side. Holding one object with the
+## other hand, every axis has the full limit: shared out by the direction of
+## need, a load pulling on more than one axis made the two hands' drives
+## chase each other (2026-09-27, scratch tests).
 const MIN_AXIS_SHARE := 0.25
 ## The commanded motion's force is given this much margin on each axis.
 const MOTION_MARGIN := 1.3
@@ -100,6 +103,23 @@ const STATIC_LAYER := 1
 ## keep up with the controller.
 @export_range(0.0, 0.2, 0.001, "suffix:kg·m²") var wrist_inertia := 0.04
 
+@export_group("Climbing")
+## Holding a hold (HandGrab), the drive moves the body instead of the hand
+## (2026-09-28): it has this force each way, in newtons, about 1.6 times the
+## 75 kg body's weight, so one arm holds the body and hauls it up at about
+## 0.77 m/s and two at about 1.39 m/s (raised from 950 N, 0.45 and 1.23 m/s,
+## after the 2026-09-30 headset session: one-handed climbing felt a little
+## slow)...
+@export_range(0.0, 5000.0, 10.0, "suffix:N") var climb_strength := 1200.0
+## ...less upward the faster the body already rises past the hand, none at
+## this speed (so it bounds how fast a pull can throw the body)...
+@export_range(0.1, 10.0, 0.1, "suffix:m/s") var haul_speed := 2.0
+## ...and up to this many times it resisting the body sinking.
+@export_range(1.0, 3.0, 0.05) var lowering_share := 1.3
+## The arms never push the body down: gravity lowers it, and they hold it
+## back to at most this speed.
+@export_range(0.1, 10.0, 0.1, "suffix:m/s") var lowering_speed := 2.0
+
 @export_group("Arm strength")
 ## What the shoulder and wrist have for what the hand holds, N·m (human, a
 ## strong adult's, roughly; 10 kg held at arm's length strains the shoulder).
@@ -117,8 +137,13 @@ const STATIC_LAYER := 1
 @export_group("Palm")
 ## The palm's box in hand space, in metres, for a static skeleton hand_scale
 ## of 1: thickness through the palm, width across the knuckles, and length
-## from the wrist to the knuckles. It is centred on the static skeleton's palm.
-@export var palm_size := Vector3(0.03, 0.08, 0.095)
+## from just ahead of the wrist to the middle finger's knuckle; and how far its
+## middle sits ahead of the static skeleton's palm centre, toward the fingers.
+## Since 2026-10-02 it reaches the player model's knuckles (its palm is 115 mm
+## from wrist to knuckle; the box was 95 mm long, centred, and ended short of
+## the fingers' roots); its back end stays 2.5 mm ahead of the wrist.
+@export var palm_size := Vector3(0.03, 0.08, 0.113)
+@export_range(0.0, 0.05, 0.001, "suffix:m") var palm_shift := 0.009
 ## Skin on most surfaces: a pressed palm holds rather than skids.
 @export_range(0.0, 2.0, 0.05) var palm_friction := 1.0
 
@@ -174,11 +199,10 @@ var _steadied_mass := 0.0
 var _carried_offset := Vector3.ZERO
 var _intended_acceleration := Vector3.ZERO
 var _last_hand_velocity := Vector3.ZERO
+var _last_hand_spin := Vector3.ZERO
 var _strength := ArmStrength.new()
-# Where the wrist is in hand space (the static skeleton's), and the tracked
-# target last tick.
+# Where the wrist is in hand space (the static skeleton's).
 var _wrist_on_hand := Vector3(0.0, 0.0, 0.05)
-var _last_tracked := Vector3.ZERO
 # Whether anything pushes on the hand this tick (see _pressing()).
 var _touching := false
 var _rig: PlayerRig
@@ -195,9 +219,42 @@ var _last_target := Transform3D.IDENTITY
 # The target's spin last tick, for how fast that changes.
 var _last_spin := Vector3.ZERO
 var _held := Transform3D.IDENTITY
+# What the hand holds and where it lies in the hand's space this tick
+# (holding()); null holding nothing.
+var _held_body: RigidBody3D
+var _held_in_hand := Transform3D.IDENTITY
 var _separated_for := 0.0
 var _relocations := 0
 var _reach_query: PhysicsShapeQueryParameters3D
+
+## Holding one object with the other hand (2026-09-27), HandGrab sets these
+## each tick before the drive runs, from the moment the second hand grips it:
+## the hand then drives to two_hand_target instead of to the static
+## skeleton's hand. A hand holding the object drives to the shared target,
+## worked out from both hands so the two hands' targets fit the object held
+## between them (the reach limit below can still move one); the second hand,
+## until it is on the object, holds nothing and rides the object where it
+## will hold it. Meanwhile the arm's strength carries nothing, the first
+## hand's too while it still holds the object alone: shaping each hand's
+## target by its own share of the load would pull the two targets apart
+## again.
+var two_handed := false
+var two_hand_target := Transform3D.IDENTITY
+var _was_two_handed := false
+var _retargeted := false
+
+## Holding a hold (2026-09-28), HandGrab sets these each tick before the drive
+## runs: the hand is welded to the hold, so the drive climbs (_hang). It
+## drives toward climb_offset, how far the player's hand has moved since the
+## weld (both hands' average while both hold holds).
+var climbing := false
+var climb_offset := Vector3.ZERO
+## How far the hand is past the arm's reach from the shoulder, in metres: a
+## hand welded to a hold that the body falls away from, or the player's hand
+## away from.
+var overreach := 0.0
+var _was_climbing := false
+var _last_climb_offset := Vector3.ZERO
 
 
 func attach(rig: PlayerRig, physical: DynamicPhysical) -> void:
@@ -224,7 +281,9 @@ func _build_palm(hand_scale: float) -> void:
 	_palm = palm_size * hand_scale
 	var box := BoxShape3D.new()
 	box.size = _palm
-	(hand.get_child(0) as CollisionShape3D).shape = box
+	var holder := hand.get_child(0) as CollisionShape3D
+	holder.shape = box
+	holder.position = Vector3(0.0, 0.0, -palm_shift * hand_scale)
 	var skin := PhysicsMaterial.new()
 	skin.friction = palm_friction
 	hand.physics_material_override = skin
@@ -265,18 +324,35 @@ func _physics_process(delta: float) -> void:
 	_borne_share = move_toward(_borne_share, 0.0 if _supported or _carried_mass <= 0.0 else 1.0,
 			delta / BEARING_TIME)
 	tracked_target = _wanted()
+	var switched := two_handed != _was_two_handed or climbing != _was_climbing or _retargeted
+	_was_two_handed = two_handed
+	_was_climbing = climbing
+	_retargeted = false
+	overreach = maxf((hand.global_position - _shoulder_tracker.global_position).length() - _arm_length, 0.0)
+	if climbing and _connected:
+		_hang(delta, switched)
+		return
 	var relocated := _connected and _physical.carrier.relocations != _relocations
-	if relocated:
-		# The player was moved: the arm's strength moves with them, keeping its
-		# sag and motion.
-		_strength.shift(tracked_target.origin - _last_tracked)
-	_last_tracked = tracked_target.origin
-	var wanted := _shaped(tracked_target, delta)
+	# The player was moved: the arm's strength starts afresh on the player's
+	# hand, at rest. Moved with its lag and motion, a held box trailing 0.64 m
+	# above the hand through a fall plunged onto it at 9 m/s after the respawn.
+	var wanted := _shaped(tracked_target, delta, switched or relocated)
 	if not _connected:
 		_connect_at(wanted)
 	elif relocated:
 		# The player was moved: the hand goes with them rather than chasing.
 		_place_hand(wanted)
+		_last_target = wanted
+		_last_spin = Vector3.ZERO
+	elif switched:
+		# The other hand took hold too, or let go, or came onto the object: the
+		# target jumps between the static skeleton's hand and the shared target
+		# (or from riding the object to the shared target), by the object's
+		# seating, the arm's sag, or how far the player's hands are out of step
+		# with the grip. The jump is no motion of the target's, so it asks for no speed,
+		# and the correction below closes it, as after letting go (ArmStrength):
+		# asked, or shaped by the arm's strength, the jump flung a bar held
+		# 0.1 m out of step at 7 m/s, or 3 m/s (review, 2026-09-27).
 		_last_target = wanted
 		_last_spin = Vector3.ZERO
 	_relocations = _physical.carrier.relocations
@@ -346,25 +422,128 @@ func _wanted() -> Transform3D:
 	var body := _physical.body.global_transform
 	if not tracked:
 		return body * _held
-	var wanted := _hand_tracker.global_transform.orthonormalized()
+	var wanted := two_hand_target if two_handed else _hand_tracker.global_transform.orthonormalized()
 	var shoulder := _shoulder_tracker.global_position
 	var reach := wanted.origin - shoulder
-	if reach.length() > _arm_length:
+	# Climbing, the hand is on the hold and the player's hand moves the body:
+	# there is nothing to keep within reach.
+	if reach.length() > _arm_length and not climbing:
 		wanted.origin = shoulder + reach.normalized() * _arm_length
 	_held = body.affine_inverse() * wanted
 	return wanted
 
 
+## Where the player's hand is: the static skeleton's hand, or, while the
+## controller is not tracked, where it last was, carried with the body.
+func player_hand() -> Transform3D:
+	if not _controller.get_has_tracking_data():
+		return _physical.body.global_transform * _held
+	return static_hand()
+
+
+## Climbing: the hand is welded to its hold, so the drive moves the body the
+## opposite way to how the player's hand moves, as fast as it moves and
+## closing what is left of climb_offset at follow_gain, as the drive moves a
+## free hand: pulling down lifts the body. The hand holds on with
+## climb_strength each way, but upward less the faster the body already rises
+## (none at haul_speed) and up to lowering_share more against sinking: one arm
+## holds the body with no sag (a velocity motor held within its force limit
+## meets its target) and hauls it at about 0.45 m/s; two haul it at about
+## 1.2 m/s. Raising the hand lowers the body, but only as gravity takes it,
+## and no faster than lowering_speed: pushed down with the whole strength as
+## well, a hand raised fast flung the body down at 6 m/s, and one arm, which
+## has only its strength less the body's weight to stop it, let it overshoot
+## the hand by 1.5 m (headset, 2026-09-28). No reach limit, no turning (the
+## weld holds the hand) and no recovery: a hand that cannot hold on is let go
+## (HandGrab).
+func _hang(delta: float, switched: bool) -> void:
+	var rate := Vector3.ZERO if switched else (climb_offset - _last_climb_offset) / delta
+	_last_climb_offset = climb_offset
+	var desired := rate + (climb_offset * follow_gain).limit_length(max_follow_speed)
+	var body_velocity := _physical.body.linear_velocity
+	# With the hand held still, the motor leaves the body moving at its
+	# velocity less `desired`: never below what gravity alone gives it this
+	# tick, nor below lowering_speed down.
+	var sinking := maxf(body_velocity.y + _physical.body.get_gravity().y * delta, -lowering_speed)
+	desired.y = minf(desired.y, body_velocity.y - sinking)
+	var rising := body_velocity.y - hand.linear_velocity.y
+	var upward := maxf(climb_strength * clampf(1.0 - rising / haul_speed, 0.0, lowering_share), base_force)
+	var limits := Vector3(climb_strength, upward, climb_strength)
+	for axis in 3:
+		_param(axis, PARAM_LINEAR_MOTOR_TARGET_VELOCITY, desired[axis] - body_velocity[axis])
+		_param(axis, PARAM_LINEAR_MOTOR_FORCE_LIMIT, limits[axis])
+	target = player_hand()
+	separation = hand.global_position.distance_to(target.origin)
+	force_limit = upward
+	drive_force = limits.length()
+	_last_target = tracked_target
+	_relocations = _physical.carrier.relocations
+	_separated_for = 0.0
+	_publish()
+
+
+## The player snap turned by `turning` (DynamicPhysical), before this tick's
+## drive: the hand turns with them, placed as it was relative to them and
+## moving as it was, and so does all the drive remembers in the world (its
+## last targets, the arm's strength), so nothing reads the turn as the
+## player's hand moving. A hand on a hold stays on it (HandGrab: the climb
+## then moves the body round it).
+func turn(turning: Transform3D) -> void:
+	if not _connected:
+		return
+	_last_target = turning * _last_target
+	_last_spin = turning.basis * _last_spin
+	_last_hand_velocity = turning.basis * _last_hand_velocity
+	_last_hand_spin = turning.basis * _last_hand_spin
+	_intended_acceleration = turning.basis * _intended_acceleration
+	_strength.turn(turning)
+	var body := _physical.body.global_transform
+	_held = body.affine_inverse() * turning * body * _held
+	if climbing:
+		return
+	hand.global_transform = turning * hand.global_transform
+	hand.linear_velocity = turning.basis * hand.linear_velocity
+	hand.angular_velocity = turning.basis * hand.angular_velocity
+
+
+## HandGrab calls this when it changes what the hand is driven to while
+## two_handed stays on (a second hand, having ridden the object onto it, now
+## drives to the shared target): as when two_handed changes, the jump this
+## tick is asked for no speed.
+func retarget() -> void:
+	_retargeted = true
+
+
+## The share of what the hand holds that its arm bears now, 0 to 1: none
+## while it rests on something (carry()).
+func borne_share() -> float:
+	return _borne_share
+
+
+## HandGrab tells the drive, each tick before it runs, what the hand holds
+## (null for nothing) and where that lies in the hand's space now, so moving
+## the hand with the player (a recentre, a respawn) moves it too. Both hands
+## of a two-handed hold tell it before either moves.
+func holding(body: RigidBody3D, in_hand: Transform3D) -> void:
+	_held_body = body
+	_held_in_hand = in_hand
+
+
+## The static skeleton's hand now: where the player's own hand is.
+func static_hand() -> Transform3D:
+	return _hand_tracker.global_transform.orthonormalized()
+
+
 ## The static skeleton's hand `tracked`, turned into where the arm's strength
-## lets the hand be this tick.
-func _shaped(tracked: Transform3D, delta: float) -> Transform3D:
+## lets the hand be this tick; `restart` puts the arm's strength on it at rest.
+func _shaped(tracked: Transform3D, delta: float, restart := false) -> Transform3D:
 	_wrist_on_hand = _hand_tracker.global_transform.affine_inverse() * _wrist_tracker.global_position
 	_configure_strength()
 	var shoulder := _shoulder_tracker.global_position
 	var at_wrist := tracked * _wrist_on_hand
-	if not _connected:
+	if not _connected or restart:
 		_strength.reset(at_wrist, tracked.basis)
-	_strength.update(shoulder, at_wrist, tracked.basis, delta)
+	_strength.update(shoulder, at_wrist, tracked.basis, _physical.body.linear_velocity, delta)
 	if not _strength.shaping():
 		# Nothing held: the static skeleton's hand as it is.
 		return tracked
@@ -377,6 +556,7 @@ func _configure_strength() -> void:
 	s.strength = Vector2(shoulder_strength, wrist_strength)
 	s.hold_share = hold_share
 	s.stiffness = Vector2(shoulder_stiffness, wrist_stiffness)
+	s.reach = _arm_length
 
 
 ## A point the arm bends toward: the static skeleton's elbow, while that lies
@@ -429,9 +609,9 @@ func carry(mass: float, inertia: Basis, offset: Vector3, touching := false,
 
 ## Tells the arm's strength what the hand holds: its centre from the wrist and
 ## its inertia about that centre, both in hand axes, and the share of its
-## weight borne.
+## weight borne. Nothing while two-handed (HandGrab: from the second grip).
 func _carry_strength(mass: float, inertia: Basis, offset: Vector3) -> void:
-	if mass <= 0.0:
+	if mass <= 0.0 or two_handed:
 		_strength.carry(0.0, Vector3.ZERO, Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO))
 		return
 	var frame := hand.global_basis.orthonormalized()
@@ -453,6 +633,13 @@ func _place_hand(at: Transform3D) -> void:
 	hand.global_transform = at
 	hand.linear_velocity = Vector3.ZERO
 	hand.angular_velocity = Vector3.ZERO
+	if is_instance_valid(_held_body):
+		# What it holds goes with it, as it lies in the hand: moved alone, the
+		# hand dragged a held longsword 20 m through one step after a respawn
+		# and flung it at 95 m/s (headset, 2026-10-02).
+		_held_body.global_transform = at * _held_in_hand
+		_held_body.linear_velocity = Vector3.ZERO
+		_held_body.angular_velocity = Vector3.ZERO
 
 
 ## Sets the linear motors to `relative` (the hand's wanted velocity relative
@@ -463,7 +650,8 @@ func _drive_linear(relative: Vector3, need: Vector3, motion: Vector3) -> void:
 	for axis in 3:
 		_param(axis, PARAM_LINEAR_MOTOR_TARGET_VELOCITY, relative[axis])
 		_param(axis, PARAM_LINEAR_MOTOR_FORCE_LIMIT,
-				absf(motion[axis]) * MOTION_MARGIN + force_limit * maxf(absf(direction[axis]), MIN_AXIS_SHARE))
+				absf(motion[axis]) * MOTION_MARGIN
+				+ force_limit * (1.0 if two_handed else maxf(absf(direction[axis]), MIN_AXIS_SHARE)))
 
 
 ## Turns the hand toward `spin` with a torque, at most `torque_limit` plus
@@ -481,8 +669,17 @@ func _turn(spin: Vector3, torque_limit: float, spin_change: Vector3, delta: floa
 	# and what the last step measured: the measured one alone, a step late,
 	# let a 10 kg box whipped fast tilt the hand 22°; the asked one alone
 	# overshot and tilted it 13° the other way on a plain fast swing.
-	var measured := (hand.linear_velocity - _last_hand_velocity) / delta
+	# Measured where the hand and what it holds share their centre of mass,
+	# not at the hand's centre: the drive does not pin the hand's centre, so
+	# the pair turns about that shared centre, and the hand's centre swings
+	# round it. Steadying on that swing, a step late, pushed it on: 10 kg held
+	# by a corner buzzed at 36 Hz, 16-20 rad/s, for seconds (headset and
+	# harness, 2026-09-27).
+	var centre := _carried_offset * (_carried_mass / (_carried_mass + hand.mass))
+	var measured := (hand.linear_velocity - _last_hand_velocity
+			+ (hand.angular_velocity - _last_hand_spin).cross(centre)) / delta
 	_last_hand_velocity = hand.linear_velocity
+	_last_hand_spin = hand.angular_velocity
 	var acceleration_now := (_intended_acceleration + measured) * 0.5
 	var steadying := _carried_offset.cross(acceleration_now * _steadied_mass)
 	# The steadying torque comes on top of the turning limit: it is what the
@@ -526,17 +723,21 @@ func _publish() -> void:
 	state.hand_touching[side] = _touching
 	state.hand_strength = hand_strength
 	state.palm_size = _palm
+	state.palm_shift = (hand.get_child(0) as CollisionShape3D).position.z * -1.0
 
 
 ## Whether anything is pushing on the hand. The physics engine also reports
 ## contacts it only expects (within a couple of centimetres) with no push yet;
-## those are not a touch.
+## those are not a touch. The pushes of all its contacts count together: a
+## hand resting on the palm and its fingers at once shares one push among
+## them (the player model's wider fingers, 2026-10-02, split a press on a
+## table's edge until no single contact counted).
 func _pressing() -> bool:
 	var state := PhysicsServer3D.body_get_direct_state(hand.get_rid())
+	var push := 0.0
 	for i in state.get_contact_count():
-		if state.get_contact_impulse(i).length() > TOUCH_IMPULSE:
-			return true
-	return false
+		push += state.get_contact_impulse(i).length()
+	return push > TOUCH_IMPULSE
 
 
 ## The rotation that turns `from` into `to`, as an axis scaled by its angle.

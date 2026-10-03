@@ -27,6 +27,7 @@ func _initialize() -> void:
 		"timing": _timing(rows),
 		"items": {},
 		"completed_items": 0,
+		"strikes": Analysis.strikes(rows),
 	}
 	# Items in the order they were shown; a session may use only some of them.
 	var shown: Array[int] = []
@@ -70,6 +71,13 @@ func _initialize() -> void:
 				a.prop_lift, a.prop_lift_mass,
 				JSON.stringify(a.presses.map(func(p: Dictionary) -> String:
 					return "%.2f/%.2f m/s stop %.2f s" % [p.speed, p.commanded, p.stop_time]))])
+	var struck := Analysis.strikes(rows)
+	print("strikes: %d" % struck.size())
+	for strike in struck:
+		print("  %7.2f s  %s  %-6s  %-5s  material %d  %6.2f J  damage %6.2f  %5.2f m/s  %.2f kg" % [
+				strike.time, "left " if strike.side == 0 else "right",
+				["", "hand", "held", "let go"][strike.source], Analysis.KIND_NAMES[strike.kind],
+				strike.material, strike.energy, strike.damage, strike.speed, strike.mass])
 	print("ANALYSIS %s" % ProjectSettings.globalize_path(path + ".analysis.json"))
 	quit(0)
 

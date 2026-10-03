@@ -2,6 +2,7 @@ extends LocomotionModule
 
 ## The left stick walks the body the way the head is looking. It sets the
 ## direction and the walking speed; the arm-pump run may raise the speed.
+## Climbing (a hand on a hold), the stick does nothing: the hands move the body.
 
 @export var move_action := &"primary"
 ## The share of the stick's throw that is ignored.
@@ -16,7 +17,7 @@ const ELEVATION_LIMIT := 0.75
 
 func contribute(frame: LocomotionFrame, _delta: float) -> void:
 	frame.top_speed = walk_speed
-	frame.wish = _wish_direction()
+	frame.wish = Vector3.ZERO if physical.climbing() else _wish_direction()
 
 
 ## The stick as a direction over the ground, in the headset's facing.

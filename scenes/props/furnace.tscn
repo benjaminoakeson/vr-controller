@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" uid="uid://cao38cfkrnbb" path="res://assets/models/props/furnace.glb" id="1_model"]
+[ext_resource type="PackedScene" path="res://scenes/props/bellows.tscn" id="2_bellows"]
+
+[node name="Furnace" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_model")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
+
+[node name="Bellows" parent="Model" instance=ExtResource("2_bellows")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6650969, 0.2549174, 0)

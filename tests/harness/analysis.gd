@@ -117,9 +117,11 @@ static func summarize(rows: Array[Dictionary]) -> Dictionary:
 		# The most a prop pushed by both hands at once rose above where it was
 		# when they both first touched it, in metres, and its mass.
 		"prop_lift": 0.0, "prop_lift_mass": 0.0,
-		# Grabs by either hand: how many, how long the first took to pull in,
-		# seconds held, and the widest gap between the grab points while held.
+		# Grabs by either hand: how many, how long the first took to seat,
+		# seconds held, and the widest gap between the grab points while held;
+		# and as drawn (the held object against the avatar's hand).
 		"grabs": 0, "grab_pull_time": -1.0, "grab_held_time": 0.0, "grab_gap_held_max": 0.0,
+		"drawn_slip_held_max": 0.0,
 		# Seconds each body part was pushed on, by BodyParts.Part name.
 		"parts_pressed": {},
 	}
@@ -190,6 +192,7 @@ static func summarize(rows: Array[Dictionary]) -> Dictionary:
 					result.grab_pull_time = row.time_s - pull_started
 				result.grab_held_time += row.delta_s
 				result.grab_gap_held_max = maxf(result.grab_gap_held_max, row.get(side + "_grab_gap", 0.0))
+				result.drawn_slip_held_max = maxf(result.drawn_slip_held_max, row.get(side + "_drawn_slip", 0.0))
 			last_grab[side] = grab
 		if prop & 6 == 6 and row.has("prop_y"):
 			if is_nan(lift_from):
@@ -341,6 +344,37 @@ static func reversals(positions: Array, axis: Vector3) -> int:
 			count += 1
 		heading = signf(move)
 	return count
+
+
+## The strikes a recording logged, in order (the strike model, 2026-09-30): for
+## each, its time (s), the hand it counts for (0 left, 1 right), where it came
+## from (HandStrikes.Source: 1 the hand, 2 held, 3 let go), its energy (J), the
+## damage it did, its closing speed (m/s), the mass it met (kg), the struck
+## material's id (1 cloth, 2 wood, 3 stone) and the damage type as recorded
+## (KIND_NAMES; 0 in recordings from before 2026-10-01).
+## Older recordings have none.
+## The damage types by their recorded code: 0 blunt and 1 slash (Strike.Kind);
+## 2 stab only in recordings from 2026-10-01 and 2026-10-02, and 3 lodge, never
+## recorded, before the types were cut to two.
+const KIND_NAMES: Array[String] = ["blunt", "slash", "stab", "lodge"]
+
+
+static func strikes(rows: Array[Dictionary]) -> Array[Dictionary]:
+	var found: Array[Dictionary] = []
+	for row in rows:
+		for side in 2:
+			var hand := "left_" if side == 0 else "right_"
+			var source := int(row.get(hand + "strike_source", 0.0))
+			if source == 0:
+				continue
+			found.append({"time": row.time_s, "side": side, "source": source,
+					"energy": row.get(hand + "strike_energy", 0.0),
+					"damage": row.get(hand + "strike_damage", 0.0),
+					"speed": row.get(hand + "strike_speed", 0.0),
+					"mass": row.get(hand + "strike_mass", 0.0),
+					"material": int(row.get(hand + "strike_material", 0.0)),
+					"kind": int(row.get(hand + "strike_kind", 0.0))})
+	return found
 
 
 ## Every number in a run's results, keyed "scenario.measurement", so two runs

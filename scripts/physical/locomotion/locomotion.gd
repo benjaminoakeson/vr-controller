@@ -9,9 +9,11 @@ extends Node
 var frame := LocomotionFrame.new()
 
 var _modules: Array[LocomotionModule] = []
+var _physical: DynamicPhysical
 
 
 func attach(rig: PlayerRig, physical: DynamicPhysical) -> void:
+	_physical = physical
 	_modules.clear()
 	for child in get_children():
 		var module := child as LocomotionModule
@@ -22,6 +24,7 @@ func attach(rig: PlayerRig, physical: DynamicPhysical) -> void:
 
 func plan(delta: float) -> LocomotionFrame:
 	frame.reset()
+	frame.strength = _physical.body.strength_share()
 	for module in _modules:
 		module.contribute(frame, delta)
 		if frame.exclusive:

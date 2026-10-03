@@ -16,17 +16,24 @@ const HAND_REST := Vector3(0.22, 1.0, -0.25)
 ## from facing -Z.
 var head_position := Vector3(0.0, HEAD_HEIGHT, 0.0)
 var yaw := 0.0
+## How far the head looks up from level, in radians about its own right axis:
+## negative looks down.
+var pitch := 0.0
 ## Hand positions relative to the head's footprint on the floor, in the
 ## head's facing: X to the right, Y up, -Z ahead.
 var left_hand := Vector3(-HAND_REST.x, HAND_REST.y, HAND_REST.z)
 var right_hand := HAND_REST
 var stick := Vector2.ZERO
+## The right controller's stick (snap turning).
+var right_stick := Vector2.ZERO
 var left_grip := 0.0
 var right_grip := 0.0
 var left_trigger := 0.0
 var right_trigger := 0.0
 ## The right controller's A button.
 var right_a := false
+## The right controller's B button.
+var right_b := false
 ## Whether each controller reports tracking.
 var left_tracked := true
 var right_tracked := true
@@ -60,7 +67,7 @@ func face(direction: Vector3) -> void:
 func apply() -> void:
 	var facing := Basis(Vector3.UP, yaw)
 	var footprint := Vector3(head_position.x, 0.0, head_position.z)
-	_pose(_head, Transform3D(facing, head_position))
+	_pose(_head, Transform3D(facing * Basis(Vector3.RIGHT, pitch), head_position))
 	if left_tracked:
 		_pose(_left, Transform3D(facing * left_hand_turn, footprint + facing * left_hand))
 	else:
@@ -70,11 +77,13 @@ func apply() -> void:
 	else:
 		_right.invalidate_pose(&"default")
 	_left.set_input(&"primary", stick)
+	_right.set_input(&"primary", right_stick)
 	_left.set_input(&"grip", left_grip)
 	_right.set_input(&"grip", right_grip)
 	_left.set_input(&"trigger", left_trigger)
 	_right.set_input(&"trigger", right_trigger)
 	_right.set_input(&"ax_button", right_a)
+	_right.set_input(&"by_button", right_b)
 
 
 ## Removes the trackers, so a following scenario starts clean.

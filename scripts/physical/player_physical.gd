@@ -12,6 +12,10 @@ extends Node3D
 ## A physical hand (0 left, 1 right) started touching something, moving at
 ## `speed` m/s. For feedback such as haptics.
 signal hand_contact(side: int, speed: float)
+## A strike (the strike model) counted for a hand (0 left, 1 right): made by
+## the hand itself, by what it holds, or by what it let go of (HandStrikes.Source).
+## For feedback such as haptics.
+signal hand_strike(side: int, strike: Strike, source: int)
 
 ## This layer's output, overwritten every tick.
 var snapshot := PoseSnapshot.new()

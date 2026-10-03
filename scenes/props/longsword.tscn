@@ -1,0 +1,81 @@
+[gd_scene format=3 uid="uid://cw7kyyy4ufj5n"]
+
+[ext_resource type="PackedScene" uid="uid://hmqpstowka0m" path="res://assets/models/weapons/longsword.glb" id="1_model"]
+[ext_resource type="Script" uid="uid://dg7iv2u86r00u" path="res://scripts/props/grabbable.gd" id="2_grabbable"]
+[ext_resource type="Script" uid="uid://drgvvw7c8uncj" path="res://scripts/strike/striker.gd" id="3_striker"]
+[ext_resource type="Script" uid="uid://dqdatyo8pj3lm" path="res://scripts/strike/sharp.gd" id="4_sharp"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_pommel"]
+size = Vector3(0.0626, 0.0051, 0.0262)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_spike"]
+size = Vector3(0.0052, 0.0503, 0.0222)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_grip"]
+size = Vector3(0.0496, 0.1942, 0.025)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_pommel_core"]
+size = Vector3(0.0496, 0.0212, 0.025)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_guard"]
+size = Vector3(0.2074, 0.0626, 0.026)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_blade"]
+size = Vector3(0.0488, 0.6567, 0.0174)
+
+[node name="LongSword" type="RigidBody3D" unique_id=266683458]
+collision_layer = 2
+collision_mask = 315
+mass = 1.9
+continuous_cd = true
+max_contacts_reported = 4
+
+[node name="Model" parent="." unique_id=1641614801 instance=ExtResource("1_model")]
+
+[node name="Pommel" type="CollisionShape3D" parent="." unique_id=142673923]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.10495, 0)
+shape = SubResource("BoxShape3D_pommel")
+
+[node name="Spike" type="CollisionShape3D" parent="." unique_id=749347627]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.14875, 0)
+shape = SubResource("BoxShape3D_spike")
+
+[node name="Grip" type="CollisionShape3D" parent="." unique_id=1168895548]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.0053, 0)
+shape = SubResource("BoxShape3D_grip")
+
+[node name="PommelCore" type="CollisionShape3D" parent="." unique_id=1144777459]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.113, 0)
+shape = SubResource("BoxShape3D_pommel_core")
+
+[node name="Guard" type="CollisionShape3D" parent="." unique_id=2089198295]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1231, 0)
+shape = SubResource("BoxShape3D_guard")
+
+[node name="Blade" type="CollisionShape3D" parent="." unique_id=1412738916]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.48275, 0)
+shape = SubResource("BoxShape3D_blade")
+
+[node name="Grabbable" type="Node" parent="." unique_id=226743172 node_paths=PackedStringArray("handles")]
+script = ExtResource("2_grabbable")
+handles = [NodePath("../Grip")]
+handle_lean = 0.2617994
+
+[node name="Striker" type="Node" parent="."]
+script = ExtResource("3_striker")
+
+[node name="EdgeA" type="Marker3D" parent="."]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.0244, 0.48275, 0)
+script = ExtResource("4_sharp")
+length = 0.6567
+
+[node name="EdgeB" type="Marker3D" parent="."]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.0244, 0.48275, 0)
+script = ExtResource("4_sharp")
+length = 0.6567
+
+[node name="Point" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0.8111, 0)
+script = ExtResource("4_sharp")
+reach = 0.03
+max_angle = 35

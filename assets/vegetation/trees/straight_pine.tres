@@ -1,0 +1,76 @@
+[gd_resource type="Resource" script_class="TreeSpecies" format=3 uid="uid://d13ec6xhhikvb"]
+
+[ext_resource type="Script" uid="uid://d8pm3x538b1n" path="res://scripts/trees/tree_species.gd" id="1_r24gq"]
+[ext_resource type="Material" path="res://assets/vegetation/trees/tree_leaf_pine.tres" id="2_tfkkc"]
+[ext_resource type="Script" uid="uid://bdks03cedap0f" path="res://scripts/trees/tree_branch_level.gd" id="2_yssk7"]
+[ext_resource type="Material" uid="uid://4smm0u446ns3" path="res://assets/vegetation/trees/tree_wood_pine.tres" id="4_423pe"]
+
+[sub_resource type="Curve" id="Curve_r24gq"]
+_data = [Vector2(0, 1), 0.0, -0.9, 1, 1, Vector2(1, 0.1), -0.9, 0.0, 1, 1]
+point_count = 2
+
+[sub_resource type="Resource" id="Resource_yssk7"]
+script = ExtResource("2_yssk7")
+segments_min = 7
+segments_max = 9
+length_along_parent = SubResource("Curve_r24gq")
+radius_ratio = 0.3
+start_fraction = 0.18
+end_fraction = 0.97
+density_per_m = 0.9
+branches_per_whorl = 4
+spread_angle_deg = 80.0
+spread_jitter_deg = 8.0
+phyllotaxis_deg = 45.0
+phyllotaxis_jitter_deg = 20.0
+leaves_per_m = 2.5
+leaf_start_fraction = 0.3
+min_radius_m = 0.012
+bend_deg_per_m = 6.0
+up_bias_deg_per_m = -5.0
+
+[sub_resource type="Resource" id="Resource_tfkkc"]
+script = ExtResource("2_yssk7")
+segments_min = 1
+segments_max = 2
+start_fraction = 0.25
+end_fraction = 0.9
+density_per_m = 1.2
+spread_angle_deg = 55.0
+spread_jitter_deg = 15.0
+phyllotaxis_deg = 180.0
+phyllotaxis_jitter_deg = 25.0
+leaves_per_m = 2.5
+leaf_start_fraction = 0.3
+min_radius_m = 0.006
+up_bias_deg_per_m = -10.0
+
+[sub_resource type="Curve" id="Curve_423pe"]
+_data = [Vector2(0, 1), 0.0, -0.704, 0, 0, Vector2(1, 0.12), -1.056, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Resource" id="Resource_o73w7"]
+script = ExtResource("2_yssk7")
+segments_min = 23
+segments_max = 27
+steps_per_segment = 1
+base_radius_m = 0.28
+leaves_per_m = 0.25
+leaf_start_fraction = 0.2
+leaf_spacing_jitter = 1.0
+tip_leaves = 4
+girth_falloff = SubResource("Curve_423pe")
+
+[resource]
+script = ExtResource("1_r24gq")
+trunk = SubResource("Resource_o73w7")
+branch_levels = Array[ExtResource("2_yssk7")]([SubResource("Resource_yssk7"), SubResource("Resource_tfkkc")])
+segment_length_min_m = 0.5
+segment_length_max_m = 0.6
+wood_material = ExtResource("4_423pe")
+leaf_style = 1
+leaf_material = ExtResource("2_tfkkc")
+leaf_size_m = 1.1
+leaf_angle_deg = 40.0
+leaf_card_aspect = 1.0
+leaf_card_stem = Vector2(0.01, 0.48)

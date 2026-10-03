@@ -6,12 +6,15 @@
 [ext_resource type="PackedScene" uid="uid://doosndktvnmqf" path="res://scenes/player/physical_dynamic.tscn" id="3_physical"]
 [ext_resource type="PackedScene" uid="uid://cfe52dfkefmow" path="res://scenes/player/debug.tscn" id="4_debug"]
 [ext_resource type="PackedScene" uid="uid://cba5xpwgu5a6c" path="res://scenes/player/interface.tscn" id="5_interface"]
+[ext_resource type="PackedScene" path="res://scenes/player/visual.tscn" id="6_visual"]
 
-[node name="Player" type="Node3D" unique_id=788331903 node_paths=PackedStringArray("rig", "physical", "interface")]
+[node name="Player" type="Node3D" unique_id=788331903 node_paths=PackedStringArray("rig", "physical", "interface", "physical_view", "pose_mapper")]
 script = ExtResource("1_player")
 rig = NodePath("Rig")
 physical = NodePath("Physical")
 interface = NodePath("Interface")
+physical_view = NodePath("Visual/PhysicalDebug")
+pose_mapper = NodePath("Visual/PoseMapper")
 debug_scene = ExtResource("4_debug")
 
 [node name="XRStartup" type="Node" parent="." unique_id=1068149423]
@@ -21,6 +24,6 @@ script = ExtResource("1_xeh2f")
 
 [node name="Physical" parent="." unique_id=1040796033 instance=ExtResource("3_physical")]
 
-[node name="Visual" type="Node3D" parent="." unique_id=687717491]
+[node name="Visual" parent="." unique_id=687717491 instance=ExtResource("6_visual")]
 
 [node name="Interface" parent="." unique_id=1200111739 instance=ExtResource("5_interface")]
