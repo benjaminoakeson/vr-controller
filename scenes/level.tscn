@@ -43,7 +43,7 @@
 [ext_resource type="Resource" path="res://assets/strike/wood.tres" id="63_wood"]
 [ext_resource type="Script" uid="uid://dtoecukka3qjd" path="res://scripts/trees/tree_chop.gd" id="64_tree_chop"]
 [ext_resource type="Script" uid="uid://defwpcocgg68k" path="res://scripts/trees/tree_chop_display.gd" id="65_chop_display"]
-[ext_resource type="PackedScene" path="res://scenes/props/furnace.tscn" id="70_furnace"]
+[ext_resource type="PackedScene" uid="uid://dt8wo7stjmb0s" path="res://scenes/props/furnace.tscn" id="70_furnace"]
 [ext_resource type="PackedScene" uid="uid://e30eypqc6epi" path="res://scenes/effects/fire.tscn" id="80_fire"]
 [ext_resource type="PackedScene" path="res://scenes/props/stone/flint.tscn" id="90_flint"]
 [ext_resource type="PackedScene" path="res://scenes/props/stone/stone.tscn" id="91_stone"]
