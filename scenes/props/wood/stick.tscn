@@ -1,28 +1,40 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://osest71s44ar"]
 
 [ext_resource type="PackedScene" uid="uid://btim7lx7a42du" path="res://assets/models/wood/stick.glb" id="1_model"]
 [ext_resource type="Script" uid="uid://dg7iv2u86r00u" path="res://scripts/props/grabbable.gd" id="2_grabbable"]
 [ext_resource type="Script" uid="uid://drgvvw7c8uncj" path="res://scripts/strike/striker.gd" id="3_striker"]
+[ext_resource type="Script" uid="uid://cnrwacvryf27c" path="res://scripts/fire/fuel.gd" id="4_fuel"]
+[ext_resource type="Script" path="res://scripts/inventory/storable.gd" id="20_storable"]
+[ext_resource type="Resource" path="res://assets/items/stick.tres" id="21_item"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_stick"]
 height = 0.463
 radius = 0.034
 
-[node name="Stick" type="RigidBody3D"]
+[node name="Stick" type="RigidBody3D" unique_id=1125002271]
 collision_layer = 2
 collision_mask = 315
 mass = 2.5
-angular_damp = 6.0
 max_contacts_reported = 4
+angular_damp = 6.0
 
-[node name="Model" parent="." instance=ExtResource("1_model")]
+[node name="Model" parent="." unique_id=1352982644 instance=ExtResource("1_model")]
 
-[node name="Shape" type="CollisionShape3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="." unique_id=1068870198]
 shape = SubResource("CylinderShape3D_stick")
 
-[node name="Grabbable" type="Node" parent="." node_paths=PackedStringArray("handles")]
+[node name="Grabbable" type="Node" parent="." unique_id=559585880 node_paths=PackedStringArray("handles")]
 script = ExtResource("2_grabbable")
 handles = [NodePath("../Shape")]
 
-[node name="Striker" type="Node" parent="."]
+[node name="Striker" type="Node" parent="." unique_id=689128635]
 script = ExtResource("3_striker")
+
+[node name="Fuel" type="Node" parent="." unique_id=159226648]
+script = ExtResource("4_fuel")
+seconds = 15.0
+readout_height = 0.15
+
+[node name="Storable" type="Node" parent="."]
+script = ExtResource("20_storable")
+item = ExtResource("21_item")

@@ -191,6 +191,27 @@ Decided in the design:
   that only slashes take, 50 for trunk wood and 10 for a branch, and at 0 is gone and drops
   3 logs or a stick a segment through a `LootDrop` (`documents/procedural_trees.md`,
   Chopping, Lone pieces).
+- **Sparks** (2026-10-05, a visual only). The flint's strikes on stone throw a burst of
+  sparks (`StrikeSparks` on the flint, listening to its `Striker`). The rule is any strike
+  that lands on a material in its list (stone: the Stone, the ore veins, the stone block),
+  where the moving piece slid at 1 m/s or faster.
+  - The sparks follow whichever piece moved, the way it slid across the other (decided
+    with the player). If the flint is swung, they go its way. If the stone is swung into
+    a still flint, they go the stone's. The rule (`slide_of`) needs `Strike.velocity` (the
+    striker against the struck body) and `Strike.surface_velocity` (the struck surface's
+    own motion), which the Striker has measured since 2026-10-05.
+  - From the struck point they leave along the surface, the way of the slide. A skim
+    raises them 15° off the surface in a 20° cone (half-angle). The straighter in the
+    blow, the higher they rise and the wider the cone, up to straight off the surface in
+    a 70° cone for a blow straight in.
+  - 8 to 28 sparks, at 0.9 of the sliding speed (1.5 to 5 m/s), by the sliding speed
+    from 1 to 6 m/s. A spark the cone sends into the surface bounces off it.
+  - Each spark flies a closed-form path under gravity with air drag
+    (`assets/effects/sparks/sparks.gdshader`), drawn as a streak that cools from
+    white-yellow to dull red over 0.18 to 0.55 s.
+  - One instanced draw per burst; three bursts per flint take turns.
+  - The Stone gained a stone `Strikeable` for this, so everything that hits it now
+    strikes it: readout totals only, as it has no `Health`.
 
 | Material | `id` | Blunt: threshold → full energy | Slash |
 | --- | --- | --- | --- |
@@ -219,7 +240,7 @@ guards, pommels, handles, the axe's back, fists, boxes) is blunt.
 | Piece | File | Role |
 | --- | --- | --- |
 | `StrikeMaterial` | `scripts/strike/strike_material.gd` | Shared read-only config: `id`, `display_name`; per type, whether it is taken, its threshold and full energy; `damage_of()` |
-| `Strike` | `scripts/strike/strike.gd` | One strike's report: type (`Kind`: blunt or slash) and the `Sharp` feature that dealt it, striker, target (the struck object), material, point, normal, speed, effective mass, energy, damage (0, or `MIN_DAMAGE` 1 to `MAX_DAMAGE` 10), holding hands (`held_by`), gap |
+| `Strike` | `scripts/strike/strike.gd` | One strike's report: type (`Kind`: blunt or slash) and the `Sharp` feature that dealt it, striker, target (the struck object), material, point, normal, speed, the striker's `velocity` against the struck body and the struck surface's own `surface_velocity` (since 2026-10-05), effective mass, energy, damage (0, or `MIN_DAMAGE` 1 to `MAX_DAMAGE` 10), holding hands (`held_by`), gap |
 | `Sharp` | `scripts/strike/sharp.gd` | A `Marker3D` on a weapon: an edge or a point, whose strikes slash. Its -Z the way it works, its Y along an edge, `length` (0 for a point), `reach`, `max_angle`; `fit()` |
 | `Strikeable` | `scripts/strike/strikeable.gd` | On any struck object (its parent: a body, or a model whose bodies it marks): its material (turning a type it does not take into blunt), its totals in all and by type, `struck(strike)` |
 | `Health` | `scripts/props/health.gd` | Takes its `strikeable`'s damage: `maximum`, `current`, `take_damage()`; `changed(current)`, and `depleted` once at 0 |
@@ -230,6 +251,8 @@ guards, pommels, handles, the axe's back, fists, boxes) is blunt.
 | `HandStrikes` | `scripts/physical/hand_strikes.gd` | One per hand: publishes the strikes the hand made to the snapshot. Sources are the hand itself (1), what it holds (2), and what it was last to let go of, for its first strike within 2 s (3) |
 | `HandHaptics` | `scripts/interface/hand_haptics.gd` | The buzz in each hand holding a striker, from `PlayerPhysical.hand_strike` (`full_strike_energy` 100 J, `strike_duration` 0.06 s); it already buzzed a bare hand's touches |
 | `StrikeReadout` | `scripts/debug/strike_readout.gd` | A Label3D over a target, plus a dot that fades over 1 s where the strike landed |
+| `StrikeSparks` | `scripts/effects/strike_sparks.gd` | On the flint (`Sparks`): a burst of sparks for each of its `striker`'s strikes on its `materials` (stone), the way the moving piece slid (`slide_of`, `spray_direction`, `glance_of`); tuning in m/s and degrees; `sparked(point, direction, strength)` |
+| `SparkBurst` | `scripts/effects/spark_burst.gd`; `scenes/effects/spark_burst.tscn` | One burst: a MultiMesh of 32 streaks drawn by `assets/effects/sparks/sparks.gdshader` (`sparks.tres`), placed in world space without physics interpolation, set through instance uniforms, hidden between bursts |
 | Targets | `scenes/props/strike_targets.tscn` | `ClothDummy` (cylinder r 0.15 m, 1.6 m), `WoodPost` (0.2 × 1.6 × 0.2 m), `StoneBlock` (0.5 × 1 × 0.5 m); instanced once in the level at (3, 0, -3.6) |
 
 Strikers sit on the five weapons, the level's three boxes and both hands, after each
@@ -284,8 +307,9 @@ and the better fit counts.
 ## Checks
 
 ```
-godot --headless --xr-mode off --fixed-fps 72 --path . -s tests/harness/run_scenarios.gd -- strike_punch_cloth strike_punch_stone strike_press_post strike_rest_sword strike_sword_post strike_axe_stone strike_longsword_two_hand strike_box_cloth strike_box_drop strike_dagger_let_go strike_sword_flat_wood strike_sword_edge_stone strike_axe_bit_wood strike_pick_wood strike_adze_wood strike_dagger_stab_cloth strike_spin_20 strike_spin_40 strike_spin_60 strike_box_vein strike_vein_break vein_loot_drop chop_axe_tree chop_axe_fell chop_box_tree chop_axe_high chop_axe_toe chop_root_loot chop_log_loot chop_stick_loot grab_ore_pressed grab_ore_join
+godot --headless --xr-mode off --fixed-fps 72 --path . -s tests/harness/run_scenarios.gd -- strike_punch_cloth strike_punch_stone strike_press_post strike_rest_sword strike_sword_post strike_axe_stone strike_longsword_two_hand strike_box_cloth strike_box_drop strike_dagger_let_go strike_sword_flat_wood strike_sword_edge_stone strike_axe_bit_wood strike_pick_wood strike_adze_wood strike_dagger_stab_cloth strike_spin_20 strike_spin_40 strike_spin_60 strike_box_vein strike_vein_break vein_loot_drop chop_axe_tree chop_axe_fell chop_box_tree chop_axe_high chop_axe_toe chop_root_loot chop_log_loot chop_stick_loot grab_ore_pressed grab_ore_join sparks_flint_skim sparks_flint_head_on sparks_stone_swung sparks_flint_wood
 godot --headless --xr-mode off --path . -s tests/strike/test_damage_health.gd
+godot --headless --xr-mode off --path . -s tests/effects/test_strike_sparks.gd
 ```
 
 The scenarios keep the posts they need (`"targets"`) and put them where they want them
@@ -409,6 +433,35 @@ Session 2's hard blows on stone read 0 (four light ones), 3, 6, 8, 9 (four) and 
 so a vein's 30 health would take about four of them. On cloth and wood, about two in
 five weapon blows reach the top; raising those full energies would spread hard swings
 apart.
+
+### Sparks (2026-10-05, simulated, desktop)
+
+Four scenarios launch a piece with no hand (`_drive_sparks`, last in the list). All
+pass:
+
+| Scenario | Strike | First burst |
+| --- | --- | --- |
+| sparks_flint_skim | the flint at 3 m/s, 20° down, onto the stone block's top along +x: met it at (2.81, -1.30, 0) m/s | along +x, 21.9° up (0.93, 0.37, 0), strength 0.42 |
+| sparks_flint_head_on | the flint dropped at 3 m/s onto the top: (0, -3.26, 0) m/s | straight up |
+| sparks_stone_swung | the Stone at 3 m/s along +x, grazing the underside of a flint held still in the air: the flint's Striker met it at (-2.98, 0.54, 0) against a surface moving (2.98, -0.54, 0), normal (0.48, 0.87, 0.06) | along +x, the stone's way (0.985, -0.173, 0) |
+| sparks_flint_wood | the flint at 3 m/s into the wood post's face | struck the wood, no sparks |
+
+The Striker's own gate decides which skims strike. A pair must close at 0.5 m/s along
+the normal, so at 3 m/s a skim shallower than about 10° never strikes and throws no
+sparks. A sweep with gravity off, starting 2.5 cm above the top, struck at 10°, 11°,
+12° and 14°, not at 4°, 6°, 8° or 9° (closing 0.52 m/s at 10°). A flint already resting
+on the stone and dragged across it stays engaged and never strikes.
+
+`tests/effects/test_strike_sparks.gd` (23 checks, all pass) checks the mover rule
+(either piece moving, or both), the spray (a skim 16° up along its slide, a slide along
+the surface at the lift alone, a blow straight in straight up, a 45° blow at 37°), which
+strikes spark (not on wood, not under 1 m/s), the counts and speeds at both ends, the
+three bursts taking turns, and the bursts hiding once their sparks are out.
+
+Desktop render (Mobile renderer, RTX 5090, 1280 × 720, not a headset measure): a live
+burst adds one draw call and 64 primitives (all 32 instances; the unused ones collapse
+to a point). The streaks show over the grey block in daylight but are thin. Whether
+they read in the headset, in daylight and in shade, is unverified.
 
 ### Headset session 1 (2026-09-30 22:46, free play, 216 s, desktop WiVRn, 72 Hz)
 

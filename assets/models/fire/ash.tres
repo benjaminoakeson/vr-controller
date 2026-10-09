@@ -1,0 +1,28 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://kb0bhnqrs4hw"]
+
+[ext_resource type="Shader" uid="uid://cqbb6s21j2cke" path="res://assets/models/fire/ash.gdshader" id="1_1aoxu"]
+
+[resource]
+resource_name = "ash"
+render_priority = 0
+shader = ExtResource("1_1aoxu")
+shader_parameter/grain_size_m = 0.0015
+shader_parameter/grain_strength = 0.12
+shader_parameter/clump_size_m = 0.008
+shader_parameter/clump_strength = 0.12
+shader_parameter/fleck_cell_m = 0.003
+shader_parameter/fleck_size = 0.45
+shader_parameter/white_flecks = 0.12
+shader_parameter/dark_flecks = 0.12
+shader_parameter/white_fleck_colour = Color(0.86, 0.85, 0.82, 1)
+shader_parameter/dark_fleck_colour = Color(0.07, 0.065, 0.06, 1)
+shader_parameter/white_fleck_strength = 0.5
+shader_parameter/dark_fleck_strength = 0.8
+shader_parameter/ash_rim = 0.25
+shader_parameter/ash_specular = 0.2
+shader_parameter/crack_cell_m = 0.008
+shader_parameter/crack_stretch = 2.0
+shader_parameter/crack_width_m = 0.0007
+shader_parameter/crack_darkness = 0.6
+shader_parameter/charcoal_roughness = 0.6
+shader_parameter/charcoal_specular = 0.4

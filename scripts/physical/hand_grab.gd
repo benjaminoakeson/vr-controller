@@ -96,6 +96,14 @@ extends Node
 ##   (the body stays held meanwhile), or when the arm is held past its reach
 ##   by hold_tear_reach for slip_time (it cannot hold on), never by moving the
 ##   hand.
+## - Inventory slots (2026-10-06, documents/inventory.md): each tick the slot
+##   whose zone the palm's grab point is in is found and touched, so it shows
+##   as selected (until the point is slot_margin out of it, so it does not
+##   flicker at the edge). The grip closing there, with the slot holding
+##   something, takes one out: it appears at the palm and is grabbed as any
+##   object is, ahead of anything else in reach. Letting go there of what the
+##   hand holds alone puts it in, if the slot takes it, instead of dropping or
+##   throwing it; slipping or losing tracking never does.
 
 ## SEATING: the object is coming into the hand (_seat_step); or, this hand
 ## joining the other's hold, the hand is coming onto the object. The values
@@ -173,6 +181,11 @@ const HELD_MASK := Grabbable.HELD_MASK
 @export_range(0.0, 10.0, 0.1, "radians_as_degrees") var hold_angle := deg_to_rad(2.0)
 @export_range(0.0, 5.0, 0.05, "suffix:rad/s") var settled_spin := 0.7
 
+@export_group("Inventory slots")
+## A slot the hand is in stays selected until the palm's grab point is this far
+## out of its zone, in metres.
+@export_range(0.0, 0.05, 0.001, "suffix:m") var slot_margin := 0.01
+
 var state := State.IDLE
 ## The candidate while idle, or the held object or hold.
 var target: PhysicsBody3D
@@ -198,6 +211,8 @@ var held_turn := 0.0
 ## hands by the lever rule, above 1 for the hand nearer the centre of mass when
 ## it lies beyond both hands, and below 0 for the other (it pushes down).
 var share := 1.0
+## The inventory slot the hand is in, or null.
+var slot: InventorySlot
 
 var _physical: DynamicPhysical
 var _controller: XRController3D
@@ -213,6 +228,7 @@ var _hold_point := Vector3.ZERO
 var _area := PhysicsShapeQueryParameters3D.new()
 var _clear := PhysicsShapeQueryParameters3D.new()
 var _meets := PhysicsShapeQueryParameters3D.new()
+var _slot_search := PhysicsPointQueryParameters3D.new()
 var _joint: Generic6DOFJoint3D
 # The held object's grab point in its own space, and its Grabbable.
 var _grip_point := Vector3.ZERO
@@ -293,6 +309,9 @@ func attach(rig: PlayerRig, physical: DynamicPhysical) -> void:
 	_clear.collision_mask = HELD_LAYER
 	_clear.margin = restore_clearance
 	_meets.collision_mask = HELD_MASK
+	_slot_search.collision_mask = InventorySlot.ZONE_LAYER
+	_slot_search.collide_with_areas = true
+	_slot_search.collide_with_bodies = false
 
 
 func _ready() -> void:
@@ -304,6 +323,7 @@ func _physics_process(delta: float) -> void:
 	if _hand == null:
 		return
 	hand_point = _hand.global_transform * _hold_point
+	_find_slot()
 	var grip := _controller.get_float(&"grip")
 	var squeezed := grip >= grab_grip
 	var pressed := squeezed and not _gripped
@@ -313,7 +333,9 @@ func _physics_process(delta: float) -> void:
 		_gripped = false
 	if state == State.IDLE:
 		_find_candidate()
-		if pressed and target != null:
+		if pressed and slot != null and slot.count > 0:
+			_take(delta)
+		elif pressed and target != null:
 			_grab(delta)
 	else:
 		_hold(delta)
@@ -339,9 +361,10 @@ func _find_candidate() -> void:
 		if climbable != null:
 			if not climbable.enabled:
 				continue
-		# A frozen body is fixed where it is, unless a hand is seating it.
+		# A frozen body is fixed where it is, unless a hand is seating it or
+		# its Grabbable lets hands take it frozen.
 		elif body == null or grabbable == null or not grabbable.open_to(self) \
-				or ((body as RigidBody3D).freeze and grabbable.holders.is_empty()):
+				or ((body as RigidBody3D).freeze and grabbable.holders.is_empty() and not grabbable.grab_frozen):
 			continue
 		var holder := body.shape_owner_get_owner(body.shape_find_owner(hit.shape)) as CollisionShape3D
 		if holder == null:
@@ -391,6 +414,60 @@ func _grab(delta: float) -> void:
 		_seat_step(delta)
 	elif partner.state == State.HOLDING:
 		_begin_shared(partner, self)
+
+
+## The inventory slot whose zone the palm's grab point is in (the nearest, if
+## in several), touched so it shows as selected; the one it was in until the
+## point is slot_margin out of its zone.
+func _find_slot() -> void:
+	var palm := _hand.global_transform * _palm_point
+	if is_instance_valid(slot) and slot.is_inside_tree() and slot.contains(palm, slot_margin):
+		slot.touch()
+		return
+	slot = null
+	_slot_search.position = palm
+	var best := INF
+	for hit in _hand.get_world_3d().direct_space_state.intersect_point(_slot_search, 4):
+		var found := hit.collider as InventorySlot
+		if found == null:
+			continue
+		var distance := found.global_position.distance_to(palm)
+		if distance < best:
+			best = distance
+			slot = found
+	if slot != null:
+		slot.touch()
+
+
+## Takes one out of the slot into the hand: it appears lying across the palm
+## (its length along the fist, the hand's Y), its surface on the hand's grab
+## point, and is grabbed there (a stick by its handle), seated and welded as
+## any grab is. It entered the tree this tick, so its grab point is where the
+## slot put it, not found by a query.
+func _take(delta: float) -> void:
+	var hand := _hand.global_basis.orthonormalized()
+	var body := slot.take(hand_point, hand.y, hand * _palm_side)
+	var grabbable := Grabbable.of(body)
+	if grabbable == null:
+		return
+	target = body
+	_climbable = null
+	_handle = grabbable.handles[0] if not grabbable.handles.is_empty() else null
+	object_point = hand_point
+	gap = 0.0
+	_grab(delta)
+
+
+## Let go in a slot that takes what this hand holds alone: puts it in, with no
+## throw, instead of dropping it. Whether it did.
+func _store() -> bool:
+	if slot == null or _climbable != null or _grabbable == null or _grabbable.holders.size() != 1 \
+			or not slot.accepts(target):
+		return false
+	var body := target as RigidBody3D
+	_throw.clear()
+	_let_go()
+	return slot.store(body)
 
 
 ## Starts bringing the object into its seat (_seat_step), from where it lies
@@ -476,6 +553,8 @@ func _hold(delta: float) -> void:
 			else (drive.overreach > hold_tear_reach if _climbable != null else drive.separation > max_separation)
 	_slipped_for = _slipped_for + delta if stuck else 0.0
 	_untracked_for = _untracked_for + delta if not drive.tracked else 0.0
+	if not _gripped and _slipped_for < slip_time and _untracked_for < tracking_loss_time and _store():
+		return
 	if not _gripped or _slipped_for >= slip_time or _untracked_for >= tracking_loss_time:
 		_let_go()
 		return
@@ -1051,11 +1130,14 @@ func _forget_letting_go(body: RigidBody3D) -> void:
 func _give_layers_back(delta: float) -> void:
 	for i in range(_letting_go.size() - 1, -1, -1):
 		var entry := _letting_go[i]
+		# Checked before the cast: casting a freed body (one put in an
+		# inventory slot as it was let go) is a script error.
+		if not is_instance_valid(entry.body) or not is_instance_valid(entry.grabbable):
+			_letting_go.remove_at(i)
+			continue
 		var body := entry.body as RigidBody3D
 		entry.time += delta
-		if not is_instance_valid(body) or not is_instance_valid(entry.grabbable):
-			_letting_go.remove_at(i)
-		elif entry.time >= restore_limit or not _hand_overlaps(body):
+		if entry.time >= restore_limit or not _hand_overlaps(body):
 			(entry.grabbable as Grabbable).clear_of(self)
 			_letting_go.remove_at(i)
 

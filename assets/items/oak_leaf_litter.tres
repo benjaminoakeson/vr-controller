@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="InventoryItem" format=3]
+
+[ext_resource type="Script" path="res://scripts/inventory/inventory_item.gd" id="1_item"]
+[ext_resource type="PackedScene" uid="uid://7vlupm265fxi" path="res://assets/vegetation/oak/oak_leaf_litter.glb" id="2_model"]
+
+[resource]
+script = ExtResource("1_item")
+id = &"oak_leaf_litter"
+display_name = "Oak leaf litter"
+scene = "res://scenes/props/oak_leaf_litter.tscn"
+model = ExtResource("2_model")
+display_rotation = Vector3(40, 20, 0)
+lay_down = false

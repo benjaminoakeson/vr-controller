@@ -2881,7 +2881,7 @@ static func _drops_of(drop: LootDrop) -> Array[Node3D]:
 static func _ring_of(items: Array[Node3D], middle: Vector3, gap: float) -> Dictionary:
 	if items.is_empty():
 		return {"ring": 0.0, "off": INF, "apart": 0.0, "reach": 0.0}
-	var reach := LootDrop._reach(items[0])
+	var reach := LootDrop.reach_of(items[0])
 	var ring := (2.0 * reach + gap) / (2.0 * sin(PI / items.size())) if items.size() > 1 else 0.0
 	var off := 0.0
 	var apart := INF

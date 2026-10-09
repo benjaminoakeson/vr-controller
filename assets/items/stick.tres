@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="InventoryItem" format=3]
+
+[ext_resource type="Script" path="res://scripts/inventory/inventory_item.gd" id="1_item"]
+[ext_resource type="PackedScene" uid="uid://btim7lx7a42du" path="res://assets/models/wood/stick.glb" id="2_model"]
+
+[resource]
+script = ExtResource("1_item")
+id = &"stick"
+display_name = "Stick"
+scene = "res://scenes/props/wood/stick.tscn"
+model = ExtResource("2_model")
+display_rotation = Vector3(20, 0, 45)
+lay_down = true

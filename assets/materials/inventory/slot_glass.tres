@@ -1,0 +1,7 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/materials/inventory/slot_glass.gdshader" id="1_shader"]
+
+[resource]
+render_priority = -1
+shader = ExtResource("1_shader")

@@ -34,6 +34,12 @@ var normal := Vector3.ZERO
 ## How fast the striker closed on the struck body along the normal before the
 ## impact, in m/s.
 var speed := 0.0
+## How the striker moved against the struck body where it landed, before the
+## impact (world space, m/s): along the normal it closes (-speed), across it it
+## slides. And how the struck surface itself moved there; the striker's own
+## motion is the sum of the two. Kept for effects (StrikeSparks), 2026-10-05.
+var velocity := Vector3.ZERO
+var surface_velocity := Vector3.ZERO
 ## The mass the strike met there along the normal (the striker and the hands
 ## holding it), in kg.
 var effective_mass := 0.0

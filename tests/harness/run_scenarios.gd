@@ -71,14 +71,24 @@ const PALMS_DOWN := [Vector3.DOWN, Vector3.FORWARD]
 ## table scenarios put their hands and crates, which were tuned on a clear
 ## table, so each scenario takes them out of its level before it enters the
 ## tree (no bodies are made, and the physics engine's solve order stays as it
-## was), keeping all of them for "weapons": true or those it lists.
+## was), keeping all of them for "weapons": true or those it lists. The fire
+## test spot beside the table (2026-10-05: a leaf pile, sticks and a log) goes
+## the same way.
 const WEAPONS: Array[NodePath] = [^"Dynamic/Sword", ^"Dynamic/Dagger", ^"Dynamic/LongSword",
-		^"Dynamic/Pickaxe", ^"Dynamic/Axe",
-		^"CopperOre", ^"IronOre", ^"GoldOre", ^"SilverOre", ^"CobaltOre"]
+		^"Dynamic/Pickaxe", ^"Dynamic/Axe", ^"Dynamic/Flint", ^"Dynamic/Stone",
+		^"CopperOre", ^"IronOre", ^"GoldOre", ^"SilverOre", ^"CobaltOre", ^"FireTest"]
 ## The struck posts east of the table (the strike model, 2026-09-30), taken out
 ## the same way, and kept for "targets": true or those listed. A scenario puts
 ## those it keeps where it needs them ("place").
 const TARGETS: Array[NodePath] = [^"Targets/ClothDummy", ^"Targets/WoodPost", ^"Targets/StoneBlock"]
+## The inventory slot above the furnace's mouth (2026-10-06), taken out the
+## same way (its zone is a physics body, and the earlier scenarios' solve order
+## stays as it was), kept for "slots": true. "slot_item" (an item's file name
+## in assets/items) and "slot_count" fill it.
+const SLOTS: Array[NodePath] = [^"Furnace/InventorySlot"]
+## Where the slot scenarios stand, facing the furnace (+X): the slot is 0.4 m
+## ahead, 0.9 m up.
+const SLOT_START := Vector3(2.7, 0.0, 3.54)
 ## The pieces cut off a watched tree, by role (_tree_pieces): the key each is
 ## kept under while its scenario runs. The pieces impacts break off (fall
 ## damage, 2026-10-03) are kept in the order they broke ("broken"), as
@@ -304,9 +314,10 @@ func _next() -> void:
 	(_level as Node3D).transform = _arena_transform(_level, scenario.get("at", "open"))
 	var kept := _kept(scenario, "weapons", WEAPONS)
 	var kept_targets := _kept(scenario, "targets", TARGETS)
-	for path in WEAPONS + TARGETS:
+	var kept_slots := _kept(scenario, "slots", SLOTS)
+	for path in WEAPONS + TARGETS + SLOTS:
 		var node := _level.get_node_or_null(path)
-		if node != null and path not in kept and path not in kept_targets:
+		if node != null and path not in kept and path not in kept_targets and path not in kept_slots:
 			node.get_parent().remove_child(node)
 			node.free()
 	var place: Dictionary = scenario.get("place", {})
@@ -314,6 +325,10 @@ func _next() -> void:
 		_place(path, place[path])
 	if scenario.has("vein_health"):
 		(_level.get_node(scenario.vein as NodePath).get_node(^"Health") as Health).maximum = scenario.vein_health
+	if scenario.has("slot_item"):
+		var slot := _level.get_node(SLOTS[0]) as InventorySlot
+		slot.item = load("res://assets/items/%s.tres" % scenario.slot_item) as InventoryItem
+		slot.count = scenario.slot_count
 	var start: Vector3 = scenario.start
 	if scenario.has("on_ramp"):
 		start.y = _ramp_height(_level, scenario.on_ramp, start)
@@ -332,6 +347,8 @@ func _next() -> void:
 		_watch_tree(_level.get_node(scenario.tree as NodePath) as ProceduralTree, scenario)
 	if scenario.has("stool"):
 		_scenario_state.stool = _add_stool(start)
+	if scenario.has("litter"):
+		_scenario_state.litter_body = _add_litter(scenario.litter)
 	if scenario.has("palms"):
 		var palms: Array = scenario.palms
 		_turn_palms(palms[0], palms[1])
@@ -1327,7 +1344,7 @@ func _finish(scenario: Dictionary) -> void:
 					"roll_mass", "roll_at", "roll_log", "walked", "walked_log", "mirror_only",
 					"grip_from_centre", "hand_from_centre", "left_grip_from_centre", "left_hand_from_centre",
 					"seat", "regrab", "neighbour_moved", "seat_time", "held_speed", "run_hold", "respawn_hold",
-					"look", "held_contact"]:
+					"look", "held_contact", "litter", "spark_strikes", "sparks", "fire", "inventory"]:
 				if _scenario_state.has(key):
 					result[key] = _scenario_state[key]
 		_results.append(result)
@@ -1718,6 +1735,15 @@ func _acceptance(result: Dictionary) -> Array[String]:
 			_accept_roll(result, failures)
 		"lone_log_walked_into", "lone_stick_walked_into":
 			_accept_walked(result, failures)
+		"litter_place", "litter_drop":
+			_accept_litter(result, failures)
+		"sparks_flint_skim", "sparks_flint_head_on", "sparks_stone_swung", "sparks_flint_wood":
+			_accept_sparks(result, failures)
+		"fire_spark_light", "fire_spark_far", "fire_feed_order", "fire_carry", "fire_burn_in_hand", \
+				"fire_lights_tinder", "fire_carry_lights", "fire_embers", "fire_growth_caps":
+			_accept_fire(result, failures)
+		"slot_take", "slot_take_stick", "slot_store", "slot_refuse":
+			_accept_inventory(result, failures)
 		"leaves_box_slow", "leaves_box_fast":
 			_accept_crown_pass(result, failures)
 			_accept_breaks(result, failures)
@@ -3628,6 +3654,151 @@ func _all_scenarios() -> Array[Dictionary]:
 				"walk": [2.0, 4.0],
 				"expect": {"walked": {"moved": 0.3, "rolled_on": 0.25, "rest_by": 2.5}},
 				"drive": _drive_lone_walk},
+		# Leaf litter (2026-10-04): a pile picked up is a ball in the hand at
+		# once; held low over the ground, a line shows where it would lie, and
+		# let go there it lies as a pile; let go higher, it stays a ball.
+		{"name": "litter_place", "at": "weapons", "title": "Grip the oak leaf pile on the table: a ball comes into the palm; lift it 0.45 m (no line), bring it down 5 cm above where it lay and 15 cm aside (a line to the table) and let go: a pile lies on the table where the line met it",
+				"start": Vector3(0.65, 0.0, 0.54), "facing": Vector3.RIGHT, "limit": 5.5,
+				"palms": PALMS_DOWN, "hand_height": 1.35, "litter": Vector3(1.0, 1.002, 0.54), "lay_down": true,
+				"drive": _drive_litter},
+		{"name": "litter_drop", "at": "weapons", "title": "Grip the oak leaf pile on the table, lift it 0.45 m and let go there: it stays a ball, falls onto the table and lies there",
+				"start": Vector3(0.65, 0.0, 0.54), "facing": Vector3.RIGHT, "limit": 5.5,
+				"palms": PALMS_DOWN, "hand_height": 1.35, "litter": Vector3(1.0, 1.002, 0.54), "lay_down": false,
+				"drive": _drive_litter},
+		# Sparks (2026-10-05): the flint's strikes on stone throw sparks the way
+		# the piece that moved slid across the other, low over the surface for a
+		# skim and straight off it for a blow straight in; none on wood. A piece is
+		# launched with no hand (_drive_sparks). Last in the list, so the scenarios
+		# before them run as they did.
+		{"name": "sparks_flint_skim", "title": "The flint launched at 3 m/s, 20° down, skimming onto the stone block's top along +x: it strikes, and its sparks head on along +x, low over the top",
+				"start": Vector3(-2.0, 0.0, 1.0), "facing": Vector3.FORWARD, "limit": 1.0,
+				"weapons": [^"Dynamic/Flint"], "targets": [^"Targets/StoneBlock"],
+				"place": {^"Targets/StoneBlock": Transform3D(Basis.IDENTITY, Vector3(-2.0, 0.5, -1.0)),
+						^"Dynamic/Flint": Transform3D(Basis.IDENTITY, Vector3(-2.2, 1.04, -1.0))},
+				"sparks_launch": [^"Dynamic/Flint", Vector3(2.82, -1.03, 0.0)],
+				"expect": {"strikes": [1, 2], "sparks": [1, 2], "heading": Vector3.RIGHT, "up": [10.0, 40.0]},
+				"drive": _drive_sparks},
+		{"name": "sparks_flint_head_on", "title": "The flint dropped at 3 m/s straight onto the stone block's top: it strikes, and its sparks go straight up off the top",
+				"start": Vector3(-2.0, 0.0, 1.0), "facing": Vector3.FORWARD, "limit": 1.0,
+				"weapons": [^"Dynamic/Flint"], "targets": [^"Targets/StoneBlock"],
+				"place": {^"Targets/StoneBlock": Transform3D(Basis.IDENTITY, Vector3(-2.0, 0.5, -1.0)),
+						^"Dynamic/Flint": Transform3D(Basis.IDENTITY, Vector3(-2.0, 1.04, -1.0))},
+				"sparks_launch": [^"Dynamic/Flint", Vector3(0.0, -3.0, 0.0)],
+				"expect": {"strikes": [1, 2], "sparks": [1, 2], "up": [75.0, 90.0]},
+				"drive": _drive_sparks},
+		{"name": "sparks_stone_swung", "title": "The stone launched at 3 m/s along +x, grazing the underside of the flint held still in the air: the flint strikes it, and the sparks follow the stone, along +x",
+				"start": Vector3(-2.0, 0.0, 1.0), "facing": Vector3.FORWARD, "limit": 1.0,
+				"weapons": [^"Dynamic/Flint", ^"Dynamic/Stone"],
+				"place": {^"Dynamic/Flint": Transform3D(Basis.IDENTITY, Vector3(-2.0, 1.2, -1.0)),
+						^"Dynamic/Stone": Transform3D(Basis.IDENTITY, Vector3(-2.18, 1.159, -1.0))},
+				"sparks_launch": [^"Dynamic/Stone", Vector3(3.0, 0.0, 0.0), ^"Dynamic/Flint"],
+				"expect": {"strikes": [1, 2], "sparks": [1, 2], "heading": Vector3.RIGHT, "up": [10.0, 80.0]},
+				"drive": _drive_sparks},
+		{"name": "sparks_flint_wood", "title": "The flint launched at 3 m/s into the wood post's face: it strikes the wood, and throws no sparks",
+				"start": Vector3(-2.0, 0.0, 1.0), "facing": Vector3.FORWARD, "limit": 1.0,
+				"weapons": [^"Dynamic/Flint"], "targets": [^"Targets/WoodPost"],
+				"place": {^"Targets/WoodPost": Transform3D(Basis.IDENTITY, Vector3(-2.0, 0.8, -1.0)),
+						^"Dynamic/Flint": Transform3D(Basis.IDENTITY, Vector3(-2.0, 1.2, -0.75))},
+				"sparks_launch": [^"Dynamic/Flint", Vector3(1.0, 0.0, -2.8)],
+				"expect": {"strikes": [1, 2], "sparks": [0, 0]},
+				"drive": _drive_sparks},
+		# Fire (2026-10-05): a burst of the flint's sparks lights leaf litter
+		# within 0.3 m of the strike, at once; lit, the litter burns the fuel
+		# within 0.5 m of it before its own, one at a time, nearest first, each
+		# going when spent, and burns on held, as a ball or a pile. The fuel's
+		# seconds are shortened, so the runs stay short. Last in the list, so the
+		# scenarios before them run as they did.
+		{"name": "fire_spark_light", "title": "The flint skims onto the stone block's top as in sparks_flint_skim, a leaf pile lying 0.3 m on from where it strikes: the burst lights the pile in its tick, its fire and its readout showing",
+				"start": Vector3(-2.0, 0.0, 1.0), "facing": Vector3.FORWARD, "limit": 1.0,
+				"weapons": [^"Dynamic/Flint"], "targets": [^"Targets/StoneBlock"],
+				"place": {^"Targets/StoneBlock": Transform3D(Basis.IDENTITY, Vector3(-2.0, 0.5, -1.0)),
+						^"Dynamic/Flint": Transform3D(Basis.IDENTITY, Vector3(-2.2, 1.04, -1.0))},
+				"sparks_launch": [^"Dynamic/Flint", Vector3(2.82, -1.03, 0.0)],
+				"litter": Vector3(-1.867, 1.0, -1.064),
+				"drive": _drive_fire_spark},
+		{"name": "fire_spark_far", "title": "The same strike, a leaf pile lying 0.45 m behind where it strikes: it stays unlit",
+				"start": Vector3(-2.0, 0.0, 1.0), "facing": Vector3.FORWARD, "limit": 1.0,
+				"weapons": [^"Dynamic/Flint"], "targets": [^"Targets/StoneBlock"],
+				"place": {^"Targets/StoneBlock": Transform3D(Basis.IDENTITY, Vector3(-2.0, 0.5, -1.0)),
+						^"Dynamic/Flint": Transform3D(Basis.IDENTITY, Vector3(-2.2, 1.04, -1.0))},
+				"sparks_launch": [^"Dynamic/Flint", Vector3(2.82, -1.03, 0.0)],
+				"litter": Vector3(-2.617, 1.0, -1.064),
+				"drive": _drive_fire_spark},
+		{"name": "fire_feed_order", "title": "A leaf pile lit on the open floor (2 s of its own), a stick lying 0.15 m off (1 s), a log 0.25 m off (1.5 s) and a stick 0.4 m off (in the 0.5 m reach as was, not the 0.3 m now): the fire, 20 % bigger for the two it holds, burns the litter, which lies as ash, then the stick, then the log, each gone when spent, shrinking 10 % for each and the ash growing 10 %; its embers die 1 s on; the far stick never burns",
+				"start": Vector3(-2.0, 0.0, 1.0), "facing": Vector3.FORWARD, "limit": 6.5,
+				"litter": Vector3(-2.0, 0.0, -0.4),
+				"fire": {"ignite_at": 0.25, "litter_seconds": 2.0, "embers": 1.0, "fuel": {
+						"stick": {"scene": "res://scenes/props/wood/stick.tscn", "at": Vector3(-1.85, 0.038, -0.4),
+								"along": Vector3.BACK, "seconds": 1.0},
+						"log": {"scene": "res://scenes/props/wood/log.tscn", "at": Vector3(-2.25, 0.065, -0.4),
+								"along": Vector3.BACK, "seconds": 1.5},
+						"far_stick": {"scene": "res://scenes/props/wood/stick.tscn", "at": Vector3(-2.0, 0.038, -0.8),
+								"along": Vector3.RIGHT, "seconds": 90.0}}},
+				"drive": _drive_fire_feed},
+		{"name": "fire_carry", "at": "weapons", "title": "A leaf pile on the table lit, a stick lying 0.27 m to its left: the litter burns its own fuel, the stick waits, held (its readout showing, the fire 10 % bigger); gripped, a ball burning on, its fire upright on it; lifted 0.45 m, out of the stick's reach, the stick is let go, untouched, and the fire is its size alone; laid down 15 cm to the right, a pile still burning",
+				"start": Vector3(0.65, 0.0, 0.54), "facing": Vector3.RIGHT, "limit": 5.5,
+				"palms": PALMS_DOWN, "hand_height": 1.35, "litter": Vector3(1.0, 1.002, 0.54), "lay_down": true,
+				"fire": {"ignite_at": 0.25, "litter_seconds": 30.0, "fuel": {
+						"stick": {"scene": "res://scenes/props/wood/stick.tscn", "at": Vector3(1.0, 1.04, 0.27),
+								"along": Vector3.RIGHT, "seconds": 90.0}}},
+				"drive": _drive_fire_carry},
+		{"name": "fire_burn_in_hand", "at": "weapons", "title": "A leaf pile on the table lit with 2.4 s of fuel, gripped and lifted 0.45 m: it burns out in the hand, which is left holding nothing and grabs nothing more",
+				"start": Vector3(0.65, 0.0, 0.54), "facing": Vector3.RIGHT, "limit": 3.5,
+				"palms": PALMS_DOWN, "hand_height": 1.35, "litter": Vector3(1.0, 1.002, 0.54), "lay_down": false,
+				"fire": {"ignite_at": 0.25, "litter_seconds": 2.4, "fuel": {}},
+				"drive": _drive_fire_carry},
+		# A fire lights the unlit tinder within its reach (2026-10-05, the
+		# player: "If I bring a leaf litter ball/pile to a burning leaf litter, it
+		# should start the other"), which burns as a fire of its own.
+		{"name": "fire_lights_tinder", "title": "A leaf pile lit on the open floor, piles 0.2 m and 0.4 m on in a row and one 0.5 m the other way (3 s each): the first catches in the lit pile's first tick and the second a tick later from it; each burns its own 3 s and lies as ash; the pile 0.8 m off never catches",
+				"start": Vector3(-2.0, 0.0, 1.0), "facing": Vector3.FORWARD, "limit": 4.5,
+				"litter": Vector3(-2.0, 0.0, -0.4),
+				"fire": {"ignite_at": 0.25, "litter_seconds": 3.0, "fuel": {
+						"next": {"scene": "res://scenes/props/oak_leaf_litter.tscn", "at": Vector3(-1.8, 0.0, -0.4), "along": Vector3.UP, "seconds": 3.0},
+						"last": {"scene": "res://scenes/props/oak_leaf_litter.tscn", "at": Vector3(-1.6, 0.0, -0.4), "along": Vector3.UP, "seconds": 3.0},
+						"far": {"scene": "res://scenes/props/oak_leaf_litter.tscn", "at": Vector3(-2.5, 0.0, -0.4), "along": Vector3.UP, "seconds": 3.0}}},
+				"drive": _drive_fire_feed},
+		{"name": "fire_carry_lights", "at": "weapons", "title": "The oak leaf pile on the table gripped, lifted 0.45 m and laid down 15 cm to the right, beside a burning pile 0.43 m from where it lay: out of the fire's reach it stays unlit; brought within it, it catches, and lies there a pile, burning its own fuel",
+				"start": Vector3(0.65, 0.0, 0.54), "facing": Vector3.RIGHT, "limit": 5.5,
+				"palms": PALMS_DOWN, "hand_height": 1.35, "litter": Vector3(1.0, 1.002, 0.54), "lay_down": true,
+				"fire": {"ignite_at": 0.25, "litter_seconds": 30.0, "light": ["burning"], "fuel": {
+						"burning": {"scene": "res://scenes/props/oak_leaf_litter.tscn", "at": Vector3(1.0, 1.002, 0.97), "along": Vector3.UP, "seconds": 30.0}}},
+				"drive": _drive_fire_carry},
+		# Ash (2026-10-05, the player): the litter burns its own fuel first and
+		# lies as ash, the fire burning on, on the fuel it holds; each fuel burnt
+		# to nothing grows the ash 10 %, the fire is 10 % bigger for each it holds,
+		# both to at most 100 % more; with nothing to burn, embers wait.
+		{"name": "fire_embers", "title": "A leaf pile lit on the open floor (1 s of its own, embers 2 s): it lies as ash, its embers small; a stick laid 0.25 m off at 2 s catches, the fire 10 % bigger, burns 1 s and is gone, the ash 10 % bigger; the embers die 2 s on, the ash lying cold",
+				"start": Vector3(-2.0, 0.0, 1.0), "facing": Vector3.FORWARD, "limit": 6.0,
+				"litter": Vector3(-2.0, 0.0, -0.4),
+				"fire": {"ignite_at": 0.25, "litter_seconds": 1.0, "embers": 2.0, "fuel": {
+						"stick": {"scene": "res://scenes/props/wood/stick.tscn", "at": Vector3(-1.75, 0.038, -0.4),
+								"along": Vector3.BACK, "seconds": 1.0, "from": 2.0}}},
+				"drive": _drive_fire_feed},
+		{"name": "fire_growth_caps", "title": "A leaf pile lit on the open floor (0.5 s of its own) amid 12 sticks held still 0.2 m round it (0.2 s each): the fire is twice its size for them, at most, its base widening twice as fast as it rises, shrinking 10 % a stick once 10 are left; the ash grows 10 % a stick to twice its size and no more; its embers die 0.5 s after the last",
+				"start": Vector3(-2.0, 0.0, 1.0), "facing": Vector3.FORWARD, "limit": 4.5,
+				"litter": Vector3(-2.0, 0.0, -0.4),
+				"fire": {"ignite_at": 0.25, "litter_seconds": 0.5, "embers": 0.5,
+						"fuel": _stick_ring(12, Vector3(-2.0, 0.25, -0.4), 0.2, 0.2)},
+				"drive": _drive_fire_feed},
+		# Inventory slot (2026-10-06): facing the furnace's slot, 0.4 m off.
+		{"name": "slot_take", "title": "The right palm comes into the furnace's slot holding 3 stones: it grows; gripping there, a stone is in the hand, held as any grab, and the slot holds 2; drawn out, the slot is back to its size",
+				"slots": true, "slot_item": "stone", "slot_count": 3, "hover": [1.3, 1.45],
+				"start": SLOT_START, "facing": Vector3.RIGHT, "limit": 4.0, "palms": PALMS_DOWN,
+				"drive": _drive_slot_take},
+		{"name": "slot_take_stick", "title": "The same with 2 sticks: a stick comes out held by its handle, along the fist",
+				"slots": true, "slot_item": "stick", "slot_count": 2, "hover": [1.3, 1.45],
+				"start": SLOT_START, "facing": Vector3.RIGHT, "limit": 4.0, "palms": PALMS_DOWN,
+				"drive": _drive_slot_take},
+		{"name": "slot_store", "title": "A stone gripped beside the empty slot, carried into it and let go there: it goes in (one stone, its body gone), not thrown, the hand empty",
+				"slots": true, "hover": [2.6, 2.95], "hand_item": "res://scenes/props/stone/stone.tscn", "hand_drop": 0.06,
+				"start": SLOT_START, "facing": Vector3.RIGHT, "limit": 4.5, "palms": PALMS_DOWN,
+				"drive": _drive_slot_store},
+		{"name": "slot_refuse", "title": "A stick carried into the slot holding a stone and let go there: it does not go in, and falls as it would",
+				"slots": true, "slot_item": "stone", "slot_count": 1, "hover": [2.6, 2.95],
+				"hand_item": "res://scenes/props/wood/stick.tscn", "hand_drop": 0.04,
+				"start": SLOT_START, "facing": Vector3.RIGHT, "limit": 4.5, "palms": PALMS_DOWN,
+				"drive": _drive_slot_store},
 	]
 
 
@@ -4366,6 +4537,549 @@ func _drive_box_launch(t: float) -> bool:
 	log.append([t, box.linear_velocity.x, box.linear_velocity.y, box.linear_velocity.z])
 	_scenario_state.box_log = log
 	return false
+
+
+## The flint's sparks (2026-10-05). At the first tick "sparks_launch" [the
+## piece launched, its velocity, and a piece held still in the air with its
+## gravity off, if any] sets them going, with no hand, each from where the
+## scenario placed it (they fell during the settling before). Logs the flint's strikes
+## as its Striker reports them ("spark_strikes": what was struck and its
+## material, how the flint moved against it and how its surface moved, the
+## normal and the point) and the flint's bursts ("sparks": the point, the way
+## the sparks mainly go and the strength).
+func _drive_sparks(_t: float) -> bool:
+	if _scenario_state.has("sparks"):
+		return false
+	_scenario_state.sparks = []
+	_scenario_state.spark_strikes = []
+	var launch: Array = _scenarios[_index].sparks_launch
+	for i in range(0, launch.size(), 2):
+		var piece := _level.get_node(launch[i] as NodePath) as RigidBody3D
+		piece.global_transform = _scenario_state["placed_" + String(piece.name)]
+		piece.linear_velocity = launch[1] if i == 0 else Vector3.ZERO
+		piece.angular_velocity = Vector3.ZERO
+		if i > 0:
+			piece.gravity_scale = 0.0
+	var flint := _level.get_node(^"Dynamic/Flint")
+	Striker.of(flint).struck.connect(func(strike: Strike) -> void:
+		(_scenario_state.spark_strikes as Array).append({"t": _t, "target": String(strike.target.name),
+				"material": strike.material.display_name if strike.material != null else "",
+				"velocity": _triple(strike.velocity), "surface_velocity": _triple(strike.surface_velocity),
+				"normal": _triple(strike.normal), "point": _triple(strike.point)}))
+	(flint.get_node(^"Sparks") as StrikeSparks).sparked.connect(
+			func(point: Vector3, direction: Vector3, strength: float) -> void:
+				(_scenario_state.sparks as Array).append({"t": _t, "point": _triple(point),
+						"direction": _triple(direction), "strength": strength}))
+	return false
+
+
+static func _triple(vector: Vector3) -> Array[float]:
+	return [vector.x, vector.y, vector.z]
+
+
+## The flint's sparks (2026-10-05): it struck as often as expected ("strikes"
+## [least, most]) and threw a burst as often ("sparks" [least, most]). The first
+## burst left from the first strike's point; along the struck surface it headed
+## within 25° of "heading" (the way the moving piece slid), and it rose off the
+## surface by "up" [least, most] degrees.
+func _accept_sparks(result: Dictionary, failures: Array[String]) -> void:
+	var want: Dictionary = _scenario_named(result.name).expect
+	var strikes: Array = result.get("spark_strikes", [])
+	var sparks: Array = result.get("sparks", [])
+	var struck: Array = strikes.map(func(strike: Dictionary) -> String:
+			return "%s (%s) at %.3f s" % [strike.target, strike.material, strike.t])
+	_expect(failures, strikes.size() >= want.strikes[0] and strikes.size() <= want.strikes[1],
+			"the flint struck %d times (%d to %d): %s" % [strikes.size(), want.strikes[0], want.strikes[1], struck])
+	_expect(failures, sparks.size() >= want.sparks[0] and sparks.size() <= want.sparks[1],
+			"%d bursts of sparks (%d to %d)" % [sparks.size(), want.sparks[0], want.sparks[1]])
+	if strikes.is_empty() or sparks.is_empty():
+		return
+	var strike: Dictionary = strikes[0]
+	var burst: Dictionary = sparks[0]
+	var normal := Vector3(strike.normal[0], strike.normal[1], strike.normal[2])
+	var direction := Vector3(burst.direction[0], burst.direction[1], burst.direction[2])
+	var from := Vector3(burst.point[0], burst.point[1], burst.point[2])
+	var at := Vector3(strike.point[0], strike.point[1], strike.point[2])
+	var velocity := Vector3(strike.velocity[0], strike.velocity[1], strike.velocity[2])
+	var surface := Vector3(strike.surface_velocity[0], strike.surface_velocity[1], strike.surface_velocity[2])
+	_expect(failures, from.distance_to(at) < 1e-4, "the sparks left from the struck point (%.4f m off)" % from.distance_to(at))
+	if want.has("heading"):
+		var heading: Vector3 = want.heading
+		var along := direction - normal * direction.dot(normal)
+		var want_along := heading - normal * heading.dot(normal)
+		var off := rad_to_deg(along.angle_to(want_along))
+		_expect(failures, off <= 25.0,
+				"along the surface they headed %.1f° off the way the moving piece slid (at most 25; the flint moved %s against a surface moving %s, normal %s)"
+				% [off, velocity, surface, normal])
+	var up := rad_to_deg(asin(clampf(direction.dot(normal), -1.0, 1.0)))
+	_expect(failures, up >= want.up[0] and up <= want.up[1],
+			"they rose %.1f° off the surface (%.0f to %.0f)" % [up, want.up[0], want.up[1]])
+
+
+## Fire (2026-10-05): the flint's strike as _drive_sparks sets it going, beside
+## the scenario's leaf pile. Logs ("fire") when each burst left and when the
+## flint's SparkIgniter lit tinder ("bursts", "ignited"), and the pile as the
+## last tick left it: whether it burns, its fire and its readout show, and its
+## sphere ("centre", "radius").
+func _drive_fire_spark(t: float) -> bool:
+	if not _scenario_state.has("fire"):
+		var events := {"bursts": [], "ignited": []}
+		_scenario_state.fire = events
+		var flint := _level.get_node(^"Dynamic/Flint")
+		(flint.get_node(^"Sparks") as StrikeSparks).sparked.connect(
+				func(_point: Vector3, _direction: Vector3, _strength: float) -> void: (events.bursts as Array).append(_t))
+		(flint.get_node(^"SparkIgniter") as SparkIgniter).ignited.connect(
+				func(_tinder: Tinder) -> void: (events.ignited as Array).append(_t))
+	_drive_sparks(t)
+	var litter := _scenario_state.litter_body as LeafLitter
+	var tinder := Tinder.of(litter)
+	var state: Dictionary = _scenario_state.fire
+	state.centre = _triple(litter.sphere.global_position)
+	state.radius = (litter.sphere.shape as SphereShape3D).radius
+	state.burning = tinder.burning
+	state.fire_shown = _fire_shown(tinder)
+	state.readout = _readout_shown(tinder.fuel)
+	return false
+
+
+## Fire (2026-10-05): the scenario's leaf pile lit where it lies, with fuel laid
+## round it (_lay_fire).
+func _drive_fire_feed(t: float) -> bool:
+	_lay_fire(t)
+	return false
+
+
+## Fire (2026-10-05): the scenario's leaf pile lit with fuel laid round it
+## (_lay_fire), then picked up, lifted and let go as _drive_litter does. Logs
+## ("fire") whether it burnt every tick from when it was lit ("unlit_ticks"), how
+## far its fire stood off its sphere's centre as drawn and leant off upright, at
+## most ("fire_off", "fire_lean"; the fire is placed each frame where the sphere
+## is drawn, which AfterHands reads in the tick before), each fuel's seconds left
+## and whether its readout shows, and the fire's size, just before the grip (1.5 s,
+## "at_grip") and once lifted (2.8 s, "lifted"), and whether it burns with its
+## fire showing at the end; once it has burnt away, how many
+## ticks the right hand was not idle ("busy_after_gone"), and the right hand's
+## grabs.
+func _drive_fire_carry(t: float) -> bool:
+	if not _scenario_state.has("fire"):
+		var drawn := AfterHands.new()
+		drawn.tick = func() -> void:
+			if is_instance_valid(_scenario_state.litter_body):
+				_scenario_state.fire.drawn = (_scenario_state.litter_body as LeafLitter).sphere.global_position
+		_level.add_child(drawn)
+	_lay_fire(t)
+	_drive_litter(t)
+	var state: Dictionary = _scenario_state.fire
+	var grab := (_player.physical as DynamicPhysical).right_grab
+	state.grabs = grab.grabs
+	if not is_instance_valid(_scenario_state.litter_body):
+		state.busy_after_gone = state.get("busy_after_gone", 0) + (0 if grab.state == HandGrab.State.IDLE else 1)
+		return false
+	var pile := _scenario_state.litter_body as LeafLitter
+	var tinder := Tinder.of(pile)
+	if not state.has("lit_at"):
+		return false
+	state.unlit_ticks = state.get("unlit_ticks", 0) + (0 if tinder.burning else 1)
+	var fire := _fire_of(tinder)
+	if fire != null and state.has("drawn"):
+		state.fire_off = maxf(state.get("fire_off", 0.0), fire.global_position.distance_to(state.drawn))
+		state.fire_lean = maxf(state.get("fire_lean", 0.0), rad_to_deg(fire.global_basis.y.angle_to(Vector3.UP)))
+	state.burning = tinder.burning
+	state.fire_shown = _fire_shown(tinder)
+	var now := {"size": tinder.size}
+	for name: String in state.fuel:
+		now[name] = state.fuel[name].get("left", -1.0)
+		now[name + "_shown"] = state.fuel[name].get("shown_now", false)
+	if t < 1.5:
+		state.at_grip = now
+	if t < 2.8:
+		state.lifted = now
+	return false
+
+
+## The scenario's leaf pile lit at "fire".ignite_at s, with "fire".litter_seconds
+## of its own, and the fuel in "fire".fuel laid round it: each by name, its
+## scene, where its middle lies, the way its length (its Y) runs, its seconds,
+## from when ("from" s, 0 by default) and whether held still ("frozen").
+## "fire".light names what is lit then instead of the pile; "fire".embers sets
+## how long each tinder's embers last. Logs ("fire") when it was lit ("lit_at",
+## -1 if it did not light) and each fuel's burning (_track_fuel).
+func _lay_fire(t: float) -> void:
+	var spec: Dictionary = _scenarios[_index].fire
+	if not _scenario_state.has("fire"):
+		_scenario_state.fire = {"fuel": {}}
+		var litter_fuel := Fuel.of(_scenario_state.litter_body)
+		litter_fuel.seconds = spec.litter_seconds
+		litter_fuel.left = spec.litter_seconds
+		_scenario_state.fuel_bodies = {"litter": _scenario_state.litter_body}
+		if spec.has("embers"):
+			Tinder.of(_scenario_state.litter_body).ember_seconds = spec.embers
+	var bodies: Dictionary = _scenario_state.fuel_bodies
+	for name: String in spec.fuel:
+		var item: Dictionary = spec.fuel[name]
+		if bodies.has(name) or t < (item.get("from", 0.0) as float):
+			continue
+		var body := (load(item.scene) as PackedScene).instantiate() as RigidBody3D
+		(body.get_node(^"Fuel") as Fuel).seconds = item.seconds
+		body.freeze = item.get("frozen", false)
+		body.transform = (_level as Node3D).transform.affine_inverse() \
+				* Transform3D(Basis(Quaternion(Vector3.UP, item.along)), item.at)
+		_level.add_child(body, true)
+		if spec.has("embers") and Tinder.of(body) != null:
+			Tinder.of(body).ember_seconds = spec.embers
+		bodies[name] = body
+	var state: Dictionary = _scenario_state.fire
+	if t >= spec.ignite_at and not state.has("lit_at"):
+		state.lit_at = t
+		for name: String in spec.get("light", ["litter"]):
+			if not Tinder.of(_scenario_state.fuel_bodies[name]).ignite():
+				state.lit_at = -1.0
+	_track_fuel(t)
+
+
+## Each fuel's burning ("fire".fuel, by name): its seconds; when it was first
+## seen burnt ("burnt_at"; it burns in the tick before), when it was spent
+## ("spent_at", in that tick) and when it was first seen gone ("gone_at"); what
+## it had left when last seen; and whether its readout ever showed ("shown"), and
+## shows now ("shown_now"). For tinder, in the tick each happened: when it was
+## lit ("lit_at"), burnt down ("ash_at") and went out ("out_at"); each size its
+## fire took to ("sizes", in turn), how many fuels it burnt to nothing
+## ("consumed"), as last seen whether it burns and shows its fire, and the
+## fire's height and base width drawn, against its size alone: as last seen and
+## at most ("fire_height", "fire_width", "fire_tallest", "fire_widest"). For leaf litter,
+## each size its ash took to ("ash_sizes"), and as last seen its form, whether a
+## hand may grab it, its layers, and whether its ash shows and at what size
+## ("ash_scale", drawn).
+func _track_fuel(t: float) -> void:
+	var logged: Dictionary = _scenario_state.fire.fuel
+	for name: String in _scenario_state.fuel_bodies:
+		if not logged.has(name):
+			var fresh := {"seconds": Fuel.of(_scenario_state.fuel_bodies[name]).seconds, "shown": false}
+			Fuel.of(_scenario_state.fuel_bodies[name]).spent.connect(func() -> void: fresh.spent_at = _t)
+			var tinder := Tinder.of(_scenario_state.fuel_bodies[name])
+			if tinder != null:
+				tinder.lit.connect(func() -> void: fresh.lit_at = _t)
+				tinder.burnt_down.connect(func() -> void: fresh.ash_at = _t)
+				tinder.went_out.connect(func() -> void: fresh.out_at = _t)
+			logged[name] = fresh
+		var entry: Dictionary = logged[name]
+		if not is_instance_valid(_scenario_state.fuel_bodies[name]):
+			if not entry.has("gone_at"):
+				entry.gone_at = t
+			entry.shown_now = false
+			continue
+		var fuel := Fuel.of(_scenario_state.fuel_bodies[name])
+		if fuel.left < fuel.seconds and not entry.has("burnt_at"):
+			entry.burnt_at = t
+		entry.left = fuel.left
+		entry.shown_now = _readout_shown(fuel)
+		entry.shown = entry.shown or entry.shown_now
+		var tinder := Tinder.of(_scenario_state.fuel_bodies[name])
+		if tinder != null:
+			_log_change(entry, "sizes", tinder.size)
+			entry.growth = [tinder.fire_growth, tinder.fire_growth_most, tinder.ember_size, tinder.base_growth]
+			entry.consumed = tinder.consumed_count
+			entry.burning = tinder.burning
+			entry.fire_shown = _fire_shown(tinder)
+			var fire := _fire_of(tinder)
+			if fire != null:
+				entry.fire_height = fire.scale.y / tinder.fire_scale
+				entry.fire_width = fire.scale.x / tinder.fire_scale
+				entry.fire_tallest = maxf(entry.get("fire_tallest", 0.0), entry.fire_height)
+				entry.fire_widest = maxf(entry.get("fire_widest", 0.0), entry.fire_width)
+		var litter := _scenario_state.fuel_bodies[name] as LeafLitter
+		if litter != null:
+			_log_change(entry, "ash_sizes", litter.ash_size)
+			entry.form = litter.form
+			entry.grabbable = litter.grabbable.enabled
+			entry.layers = [litter.collision_layer, litter.collision_mask]
+			entry.ash_shown = litter.ash_model.visible
+			entry.ash_scale = litter.ash_model.scale.x
+
+
+## Appends `value` to `entry[key]` if it differs from the last there.
+static func _log_change(entry: Dictionary, key: String, value: float) -> void:
+	var values: Array = entry.get(key, [])
+	if values.is_empty() or not is_equal_approx(values[-1], value):
+		values.append(value)
+	entry[key] = values
+
+
+## `count` sticks standing round `middle` (world, in the frame the scenario was
+## written in) `radius` m out, held still, `seconds` each: "fire".fuel entries.
+static func _stick_ring(count: int, middle: Vector3, radius: float, seconds: float) -> Dictionary:
+	var ring := {}
+	for i in count:
+		var angle := TAU * i / count
+		ring["stick_%d" % i] = {"scene": "res://scenes/props/wood/stick.tscn", "seconds": seconds, "frozen": true,
+				"at": middle + Vector3(cos(angle), 0.0, sin(angle)) * radius, "along": Vector3.UP}
+	return ring
+
+
+## The fire a lit tinder shows, or null.
+static func _fire_of(tinder: Tinder) -> Node3D:
+	for child in tinder.get_children():
+		if child is Node3D:
+			return child
+	return null
+
+
+static func _fire_shown(tinder: Tinder) -> bool:
+	var fire := _fire_of(tinder)
+	return fire != null and fire.visible
+
+
+## Whether a fuel's readout shows.
+static func _readout_shown(fuel: Fuel) -> bool:
+	for child in fuel.get_children():
+		if child is FuelDisplay and (child as FuelDisplay).visible:
+			return true
+	return false
+
+
+## Fire (2026-10-05). fire_spark_light: the flint threw a burst and lit the pile,
+## its sphere within the SparkIgniter's 0.3 m of the burst's point, in the
+## burst's tick; the pile burns with its fire and readout showing.
+## fire_spark_far: a burst, the pile's sphere farther than 0.3 m from it, and the
+## pile unlit. fire_feed_order: the litter, then the stick, then the log each
+## burnt only once the one before was spent, and was spent when the seconds of
+## all up to it had burnt from the lighting (within 2 ticks), showing its
+## readout; the litter lay as ash from then (_accept_ash), the stick and the log
+## were gone the tick after; the fire's size went 1, then by its growth for the
+## two it held, then the one, then embers (_fire_sizes); the ash's 1, 1.1, 1.2; the embers died 1 s after the log was
+## spent; the far stick never burnt nor showed a readout. fire_carry: lit, it
+## burnt every tick on; held, a ball, its fire on its sphere's centre (1 mm) and
+## upright (0.01°); before the grip the litter burnt its own, the stick waiting,
+## held (readout showing, the fire grown for one); lifted, the stick let go (readout
+## hidden, the fire 1), never burnt; at the end a pile, burning, its fire showing.
+## fire_burn_in_hand: held as a ball, it was gone when its seconds had burnt
+## (within 2 ticks), while gripped; the hand let go in the tick it found the
+## leaves gone (its own, after the scenario's: at most 1 tick seen holding) and
+## was idle from then on, with one grab. fire_lights_tinder: the pile 0.35 m on
+## caught in the lit pile's first tick, the one beyond it a tick later; each
+## pile burnt down its own seconds after it caught (within 2 ticks) and lay as
+## ash; the pile 0.8 m off never caught nor burnt. fire_carry_lights: the carried
+## pile caught only once brought down beside the fire (3 to 4.3 s), and at the
+## end lies a pile, burning its own fuel, the fire beside it still burning its
+## own. fire_embers: the leaves lay as ash 1 s after the lighting, its embers
+## small (size 0.5); the stick laid at 2 s caught within a look of it, the fire
+## grown for one, burnt 1 s and was gone, the ash 1.1; the embers died 2 s after, not
+## before, and the ash lay cold at 1.1. fire_growth_caps: the fire's size went 1,
+## 2 (at most, for 12), then down by its growth a stick once few enough were
+## left, to its size for one, then embers, its base widening base_growth times
+## as fast as it rose; the ash's 1 up 0.1 a stick
+## to 2 and no more, all 12 burnt, drawn at 2 by the end (1 %); the embers died
+## 0.5 s after the last stick.
+func _accept_fire(result: Dictionary, failures: Array[String]) -> void:
+	var state: Dictionary = result.get("fire", {})
+	var tick := 1.0 / Engine.physics_ticks_per_second
+	match result.name:
+		"fire_spark_light", "fire_spark_far":
+			var bursts: Array = state.get("bursts", [])
+			var ignited: Array = state.get("ignited", [])
+			var sparks: Array = result.get("sparks", [])
+			if not _expect(failures, not bursts.is_empty() and not sparks.is_empty(), "the flint threw sparks"):
+				return
+			var gap := _vector(sparks[0].point).distance_to(_vector(state.centre)) - (state.radius as float)
+			if result.name == "fire_spark_light":
+				_expect(failures, gap <= 0.3, "the pile lies within 0.3 m of the strike (%.3f m)" % gap)
+				_expect(failures, ignited.size() == 1 and is_equal_approx(ignited[0], bursts[0]),
+						"the burst lit the pile %.3f m from it, in its tick (lit at %s, burst at %.3f s)" % [gap, ignited, bursts[0]])
+				_expect(failures, state.get("burning", false) and state.get("fire_shown", false) and state.get("readout", false),
+						"it burns, its fire and its readout showing")
+			else:
+				_expect(failures, gap > 0.3, "the pile lies beyond 0.3 m of the strike (%.3f m)" % gap)
+				_expect(failures, ignited.is_empty() and not state.get("burning", true) and not state.get("fire_shown", true),
+						"the pile %.3f m from the strike stays unlit" % gap)
+		"fire_feed_order":
+			var fuel: Dictionary = state.get("fuel", {})
+			var lit_at: float = state.get("lit_at", -1.0)
+			if not _expect(failures, lit_at >= 0.0, "the pile lit"):
+				return
+			var burnt_by := lit_at
+			var before := ""
+			for name: String in ["litter", "stick", "log"]:
+				var entry: Dictionary = fuel.get(name, {})
+				burnt_by += entry.get("seconds", 0.0) as float
+				var spent_at: float = entry.get("spent_at", -1.0)
+				_expect(failures, absf(spent_at - burnt_by) <= 2.0 * tick,
+						"the %s was spent at %.3f s, when %.3f s had burnt from the lighting at %.3f s" % [
+						name, spent_at, burnt_by - lit_at, lit_at])
+				_expect(failures, entry.get("shown", false), "the %s showed its readout" % name)
+				if name != "litter":
+					_expect(failures, entry.has("gone_at") and (entry.gone_at as float) - spent_at <= 1.5 * tick,
+							"the %s was gone the tick after (%.3f s)" % [name, entry.get("gone_at", -1.0)])
+				if before != "":
+					var first_burnt: float = entry.get("burnt_at", -1.0)
+					_expect(failures, first_burnt > (fuel.get(before, {}) as Dictionary).get("spent_at", 99.0),
+							"the %s burnt only once the %s was spent (first seen burnt at %.3f s)" % [name, before, first_burnt])
+				before = name
+			var litter: Dictionary = fuel.get("litter", {})
+			_accept_ash(failures, litter)
+			_expect_steps(failures, litter.get("sizes", []), _fire_sizes(litter, [0, 2, 1, -1]), "the fire's size")
+			_expect_steps(failures, litter.get("ash_sizes", []), [1.0, 1.1, 1.2], "the ash's size")
+			var out_at: float = litter.get("out_at", -1.0)
+			var log_spent: float = (fuel.get("log", {}) as Dictionary).get("spent_at", -1.0)
+			_expect(failures, absf(out_at - log_spent - 1.0) <= 2.0 * tick and not litter.get("burning", true)
+					and not litter.get("fire_shown", true), "its embers died 1 s after the log was spent (%.3f s), its fire gone" % out_at)
+			var far: Dictionary = fuel.get("far_stick", {})
+			_expect(failures, far.get("left", -1.0) == far.get("seconds", 0.0) and not far.get("shown", true)
+					and not far.has("gone_at"), "the stick 0.4 m off never burnt (%.2f s of %.0f left), no readout" % [
+					far.get("left", -1.0), far.get("seconds", 0.0)])
+		"fire_carry":
+			var litter: Dictionary = result.get("litter", {})
+			var fuel: Dictionary = state.get("fuel", {})
+			var grip: Dictionary = state.get("at_grip", {})
+			var lifted: Dictionary = state.get("lifted", {})
+			var stick: Dictionary = fuel.get("stick", {})
+			var own: Dictionary = fuel.get("litter", {})
+			_expect(failures, state.get("lit_at", -1.0) >= 0.0 and state.get("unlit_ticks", -1) == 0,
+					"lit, it burnt every tick on (%d ticks not)" % state.get("unlit_ticks", -1))
+			_expect(failures, litter.get("ball_held", false), "gripped, a ball in the hand")
+			_expect(failures, state.get("fire_off", 9.0) <= 0.001 and state.get("fire_lean", 90.0) <= 0.01,
+					"its fire stood on the leaves' centre (%.4f m off at most) and upright (%.3f° at most)" % [
+					state.get("fire_off", 9.0), state.get("fire_lean", 90.0)])
+			_expect(failures, (own.get("seconds", 0.0) as float) - (grip.get("litter", 99.0) as float) >= 1.0
+					and grip.get("stick", 0.0) == 90.0 and grip.get("stick_shown", false)
+					and is_equal_approx(grip.get("size", 0.0), (_fire_sizes(own, [1]) as Array)[0]),
+					"before the grip the litter burnt its own (%.2f s left of 30), the stick waiting, held (%.2f s left of 90, readout %s), the fire %.2f" % [
+					grip.get("litter", 99.0), grip.get("stick", 0.0), grip.get("stick_shown", false), grip.get("size", 0.0)])
+			_expect(failures, not lifted.get("stick_shown", true) and is_equal_approx(lifted.get("size", 0.0), 1.0),
+					"lifted out of its reach, the stick let go (readout %s), the fire %.2f" % [
+					lifted.get("stick_shown", true), lifted.get("size", 0.0)])
+			_expect(failures, stick.get("left", -1.0) == 90.0 and not stick.has("burnt_at") and not stick.get("shown_now", true),
+					"the stick never burnt (%.2f s left of 90), its readout hidden at the end" % stick.get("left", -1.0))
+			_expect(failures, (litter.get("end", {}) as Dictionary).get("form", -1) == LeafLitter.Form.PILE
+					and state.get("burning", false) and state.get("fire_shown", false),
+					"laid down, a pile still burning, its fire showing")
+		"fire_lights_tinder":
+			var fuel: Dictionary = state.get("fuel", {})
+			var lit_at: float = state.get("lit_at", -1.0)
+			var caught_next: float = (fuel.get("next", {}) as Dictionary).get("lit_at", -1.0)
+			var caught_last: float = (fuel.get("last", {}) as Dictionary).get("lit_at", -1.0)
+			_expect(failures, lit_at >= 0.0 and absf(caught_next - lit_at) <= 0.5 * tick,
+					"the pile 0.35 m on caught in the lit pile's first tick (lit %.3f s, caught %.3f s)" % [lit_at, caught_next])
+			_expect(failures, absf(caught_last - caught_next - tick) <= 0.5 * tick,
+					"the pile beyond it caught a tick later, from it (%.3f s)" % caught_last)
+			for name: String in ["litter", "next", "last"]:
+				var entry: Dictionary = fuel.get(name, {})
+				var from: float = lit_at if name == "litter" else entry.get("lit_at", -1.0)
+				var spent_at: float = entry.get("spent_at", -1.0)
+				_expect(failures, from >= 0.0 and absf(spent_at - from - (entry.get("seconds", 0.0) as float)) <= 2.0 * tick
+						and entry.get("form", -1) == LeafLitter.Form.ASH and not entry.has("gone_at"),
+						"the %s burnt its own %.0f s, %.3f s after it caught, and lies as ash" % [
+						name, entry.get("seconds", 0.0), spent_at - from])
+			var far: Dictionary = fuel.get("far", {})
+			_expect(failures, not far.has("lit_at") and far.get("left", -1.0) == far.get("seconds", 0.0),
+					"the pile 0.8 m off never caught (%.2f s of %.0f left)" % [far.get("left", -1.0), far.get("seconds", 0.0)])
+		"fire_carry_lights":
+			var litter: Dictionary = result.get("litter", {})
+			var fuel: Dictionary = state.get("fuel", {})
+			var own: Dictionary = fuel.get("litter", {})
+			var other: Dictionary = fuel.get("burning", {})
+			var caught: float = own.get("lit_at", -1.0)
+			_expect(failures, state.get("lit_at", -1.0) >= 0.0 and litter.get("ball_held", false),
+					"the fire beside lit, the pile gripped: a ball in the hand")
+			_expect(failures, caught >= 3.0 and caught <= 4.3,
+					"the carried pile caught once brought down beside the fire (%.3f s, 3 to 4.3)" % caught)
+			_expect(failures, (litter.get("end", {}) as Dictionary).get("form", -1) == LeafLitter.Form.PILE
+					and state.get("burning", false) and state.get("fire_shown", false)
+					and own.get("left", 99.0) < (own.get("seconds", 0.0) as float),
+					"laid down, a pile burning its own fuel (%.2f s of %.0f left)" % [own.get("left", 99.0), own.get("seconds", 0.0)])
+			_expect(failures, other.get("left", -1.0) < (other.get("seconds", 0.0) as float) and not other.has("gone_at"),
+					"the fire beside burnt on, its own (%.2f s of %.0f left)" % [other.get("left", -1.0), other.get("seconds", 0.0)])
+		"fire_embers":
+			var fuel: Dictionary = state.get("fuel", {})
+			var litter: Dictionary = fuel.get("litter", {})
+			var stick: Dictionary = fuel.get("stick", {})
+			var lit_at: float = state.get("lit_at", -1.0)
+			_expect(failures, lit_at >= 0.0 and absf((litter.get("ash_at", -1.0) as float) - lit_at - 1.0) <= 2.0 * tick,
+					"the leaves lay as ash 1 s after the lighting (%.3f s)" % litter.get("ash_at", -1.0))
+			_accept_ash(failures, litter)
+			var caught: float = stick.get("burnt_at", -1.0)
+			_expect(failures, caught >= 2.0 and caught <= 2.0 + 0.25 + 2.0 * tick,
+					"the stick laid at 2 s on the embers caught within a look (%.3f s)" % caught)
+			var spent_at: float = stick.get("spent_at", -1.0)
+			# Seen burnt the tick after it began, spent in its last tick.
+			_expect(failures, absf(spent_at - caught - (1.0 - 2.0 * tick)) <= 0.5 * tick and stick.has("gone_at"),
+					"it burnt its 1 s and was gone (spent at %.3f s)" % spent_at)
+			_expect_steps(failures, litter.get("sizes", []), _fire_sizes(litter, [0, -1, 1, -1]), "the fire's size")
+			_expect_steps(failures, litter.get("ash_sizes", []), [1.0, 1.1], "the ash's size")
+			var out_at: float = litter.get("out_at", -1.0)
+			_expect(failures, absf(out_at - spent_at - 2.0) <= 2.0 * tick and not litter.get("burning", true)
+					and not litter.get("fire_shown", true),
+					"the embers held until the stick came, and died 2 s after it was spent (%.3f s), the ash cold" % out_at)
+			_expect(failures, absf((litter.get("ash_scale", 0.0) as float) - 1.1) <= 0.011,
+					"the ash drawn at %.3f of its size at first (1.1)" % litter.get("ash_scale", 0.0))
+		"fire_growth_caps":
+			var fuel: Dictionary = state.get("fuel", {})
+			var litter: Dictionary = fuel.get("litter", {})
+			_accept_ash(failures, litter)
+			_expect_steps(failures, litter.get("sizes", []),
+					_fire_sizes(litter, [0, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, -1]), "the fire's size")
+			_expect_steps(failures, litter.get("ash_sizes", []),
+					[1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0], "the ash's size")
+			_expect(failures, litter.get("consumed", 0) == 12, "all 12 sticks burnt to nothing (%d)" % litter.get("consumed", 0))
+			var tallest: float = litter.get("fire_tallest", 0.0)
+			var widest: float = litter.get("fire_widest", 0.0)
+			var base_growth: float = (litter.get("growth", [0.0, 0.0, 0.0, 0.0]) as Array)[3]
+			_expect(failures, tallest > 1.5 and absf((widest - 1.0) - base_growth * (tallest - 1.0)) <= 1e-3,
+					"growing, the fire's base widened %.1f times as fast as it rose (at most %.3f tall, %.3f wide)" % [
+					base_growth, tallest, widest])
+			_expect(failures, absf((litter.get("ash_scale", 0.0) as float) - 2.0) <= 0.02,
+					"the ash drawn at %.3f of its size at first (2)" % litter.get("ash_scale", 0.0))
+			var last_spent := 0.0
+			for name: String in fuel:
+				if name.begins_with("stick_"):
+					last_spent = maxf(last_spent, (fuel[name] as Dictionary).get("spent_at", 99.0))
+			_expect(failures, absf((litter.get("out_at", -1.0) as float) - last_spent - 0.5) <= 2.0 * tick,
+					"the embers died 0.5 s after the last stick (%.3f s, the last spent at %.3f s)" % [
+					litter.get("out_at", -1.0), last_spent])
+		"fire_burn_in_hand":
+			var litter: Dictionary = result.get("litter", {})
+			var own: Dictionary = (state.get("fuel", {}) as Dictionary).get("litter", {})
+			var lit_at: float = state.get("lit_at", -1.0)
+			var spent_at: float = own.get("spent_at", -1.0)
+			_expect(failures, lit_at >= 0.0 and litter.get("ball_held", false), "lit, then gripped: a ball in the hand")
+			_expect(failures, absf(spent_at - lit_at - (own.get("seconds", 0.0) as float)) <= 2.0 * tick
+					and own.has("gone_at") and spent_at < 3.0,
+					"it burnt out in the hand at %.3f s, %.3f s after it lit, and was gone (%.3f s)" % [
+					spent_at, spent_at - lit_at, own.get("gone_at", -1.0)])
+			var busy: int = state.get("busy_after_gone", -1)
+			_expect(failures, busy >= 0 and busy <= 1 and state.get("grabs", 0) == 1,
+					"the hand let go at once and was idle from then on (%d ticks seen holding, at most 1), with one grab (%d)" % [
+					state.get("busy_after_gone", -1), state.get("grabs", 0)])
+
+
+## Burnt down where it lay, the leaf litter is ash: its ash showing, its leaves
+## not, no hand's to grab and meeting nothing.
+func _accept_ash(failures: Array[String], litter: Dictionary) -> void:
+	_expect(failures, litter.get("form", -1) == LeafLitter.Form.ASH and litter.get("ash_shown", false)
+			and not litter.has("gone_at"), "the leaves lie as ash (form %s)" % litter.get("form", -1))
+	_expect(failures, not litter.get("grabbable", true) and litter.get("layers", []) == [0, 0],
+			"the ash is no hand's to grab and meets nothing (layers %s)" % [litter.get("layers", [])])
+
+
+## The sizes a tinder's fire takes holding, in turn, each of `helds` fuels (-1
+## for embers), by its own growth settings (its log's "growth"), with each size
+## the same as the one before left out.
+static func _fire_sizes(entry: Dictionary, helds: Array) -> Array:
+	var growth: Array = entry.get("growth", [0.0, 0.0, 0.0, 0.0])
+	var sizes := []
+	for held: int in helds:
+		var size: float = growth[2] if held < 0 else Tinder.growth_of(held, growth[0], growth[1])
+		if sizes.is_empty() or not is_equal_approx(sizes[-1], size):
+			sizes.append(size)
+	return sizes
+
+
+## The values a size took, in turn, are `want` (each within 1e-6).
+func _expect_steps(failures: Array[String], got: Array, want: Array, what: String) -> void:
+	var same := got.size() == want.size()
+	for i in mini(got.size(), want.size()):
+		same = same and absf((got[i] as float) - (want[i] as float)) <= 1e-6
+	_expect(failures, same, "%s went %s (want %s)" % [what, got.map(func(v: float) -> String: return "%.2f" % v),
+			want.map(func(v: float) -> String: return "%.2f" % v)])
 
 
 ## The right palm comes flat over the middle of the scenario's ore (where it
@@ -6266,6 +6980,95 @@ func _track_walked(t: float, from: float) -> void:
 		walked.rest_from = t
 
 
+## A point recorded as [x, y, z].
+static func _vector(values: Array) -> Vector3:
+	return Vector3(values[0], values[1], values[2])
+
+
+## The furnace's slot (2026-10-06). In each, the hand in the zone selects it
+## (it grows). slot_take, slot_take_stick: gripping there takes one: the item
+## in the hand from then to the end, held at its grab point (within 2 cm),
+## nothing flung (under 2 m/s), one fewer in the slot; drawn out, the slot is
+## back to its size; the stick held by its handle along the fist (within 5°).
+## slot_store: the stone let go there goes in (one stone, its body gone), not
+## thrown, the hand empty. slot_refuse: the stick does not go in with the
+## stone, and falls.
+func _accept_inventory(result: Dictionary, failures: Array[String]) -> void:
+	var state: Dictionary = result.get("inventory", {})
+	var start: int = state.get("count_start", -9)
+	_expect(failures, state.get("selected_ticks", 0) > 0 and state.get("grown", 0.0) >= 1.2,
+			"the hand in the slot selects it (%d ticks), grown (%.3f)" % [state.get("selected_ticks", 0), state.get("grown", 0.0)])
+	match result.name:
+		"slot_take", "slot_take_stick":
+			var id := "stone" if result.name == "slot_take" else "stick"
+			_expect(failures, state.get("grabs", 0) == 1 and state.get("held_id", "") == id and state.get("held_ticks", 0) >= 144
+					and state.get("state", -1) == HandGrab.State.HOLDING,
+					"gripped there, a %s in the hand to the end (%s, %d ticks)" % [id, state.get("held_id", ""), state.get("held_ticks", 0)])
+			_expect(failures, state.get("count", -1) == start - 1, "one fewer in the slot (%d of %d)" % [state.get("count", -1), start])
+			_expect(failures, state.get("held_gap", 9.0) <= 0.02, "held at its grab point (%.4f m)" % state.get("held_gap", 9.0))
+			_expect(failures, state.get("held_speed", 9.0) <= 2.0, "nothing flung (%.2f m/s)" % state.get("held_speed", 9.0))
+			_expect(failures, not state.get("end_selected", true) and state.get("end_scale", 9.0) <= 1.01,
+					"drawn out, the slot is back to its size (%.3f)" % state.get("end_scale", 9.0))
+			if result.name == "slot_take_stick":
+				_expect(failures, state.get("handle_turn", 90.0) <= 5.0,
+						"held by its handle, along the fist (%.1f°)" % state.get("handle_turn", 90.0))
+		"slot_store":
+			_expect(failures, state.get("held_id", "") == "stone", "the stone was held (%s)" % state.get("held_id", ""))
+			_expect(failures, state.get("hand_body_gone", false) and state.get("count", -1) == 1 and state.get("item", "") == "stone",
+					"let go there, it goes in: %d %s, its body gone" % [state.get("count", -1), state.get("item", "")])
+			_expect(failures, state.get("throws", -1) == 0 and state.get("state", -1) == HandGrab.State.IDLE,
+					"not thrown (%d), the hand empty" % state.get("throws", -1))
+		"slot_refuse":
+			_expect(failures, state.get("held_id", "") == "stick", "the stick was held (%s)" % state.get("held_id", ""))
+			_expect(failures, not state.get("hand_body_gone", true) and state.get("count", -1) == 1 and state.get("item", "") == "stone",
+					"it does not go in: the slot still holds %d %s" % [state.get("count", -1), state.get("item", "")])
+			_expect(failures, state.get("hand_body_y", 9.0) < state.get("released_y", 0.0) - 0.1,
+					"it falls as it would (%.3f m to %.3f m)" % [state.get("released_y", 0.0), state.get("hand_body_y", 9.0)])
+
+
+## A leaf pile gripped is a ball in the hand, which comes up with it, and no
+## line shows 0.45 m up. litter_place: held 5 cm over the table, a line runs
+## to the table straight below the ball every tick; let go, it lies as a pile
+## where the line met the table, 15 cm from where it was picked up, and stays
+## there, with the pile's layers back. litter_drop: let go high, it stays a
+## ball and lies still on the table with a ball's layers.
+func _accept_litter(result: Dictionary, failures: Array[String]) -> void:
+	var state: Dictionary = result.get("litter", {})
+	var after: Dictionary = state.get("after", {})
+	var end: Dictionary = state.get("end", {})
+	var start := _vector(state.get("start", [0.0, 0.0, 0.0]))
+	_expect(failures, state.get("grabs", 0) == 1, "grabbed once (%d)" % state.get("grabs", 0))
+	_expect(failures, state.get("ball_held", false), "gripped, a ball in the hand")
+	_expect(failures, state.get("high_rise", 0.0) >= 0.35, "it came up with the hand (%.3f m)" % state.get("high_rise", 0.0))
+	_expect(failures, not state.get("line_high", true), "no line held 0.45 m up")
+	if result.name == "litter_place":
+		var point := _vector(state.get("place_point", [0.0, 0.0, 0.0]))
+		var centre := _vector(state.get("ball_centre", [9.0, 9.0, 9.0]))
+		var lies := _vector(after.get("at", [9.0, 9.0, 9.0]))
+		_expect(failures, state.get("low_ticks", 0) > 0 and state.get("line_low_ticks", -1) == state.get("low_ticks", 0),
+				"held low, a line to the table every tick (%d of %d)" % [state.get("line_low_ticks", 0), state.get("low_ticks", 0)])
+		_expect(failures, Vector2(point.x - centre.x, point.z - centre.z).length() <= 0.001 and absf(point.y - 1.002) <= 0.002,
+				"the line met the table straight below the ball (%.4f m aside, %.4f m off the top)" % [
+				Vector2(point.x - centre.x, point.z - centre.z).length(), point.y - 1.002])
+		_expect(failures, after.get("form", -1) == LeafLitter.Form.PILE and after.get("frozen", false)
+				and after.get("pile_shown", false) and not after.get("line", true), "let go, a pile, the line gone")
+		_expect(failures, lies.distance_to(point) <= 0.001, "it lies where the line met the table (%.4f m off)" % lies.distance_to(point))
+		_expect(failures, Vector2(lies.x - start.x, lies.z - start.z).length() >= 0.1,
+				"15 cm from where it was picked up (%.3f m)" % Vector2(lies.x - start.x, lies.z - start.z).length())
+		_expect(failures, _vector(end.get("at", [9.0, 9.0, 9.0])).distance_to(lies) <= 0.001, "and stays there")
+		_expect(failures, end.get("layer", 0) == LeafLitter.PILE_LAYER and end.get("mask", -1) == LeafLitter.PILE_MASK,
+				"with the pile's layers back (%d, %d)" % [end.get("layer", 0), end.get("mask", -1)])
+	else:
+		_expect(failures, after.get("form", -1) == LeafLitter.Form.BALL and not after.get("frozen", true),
+				"let go high, still a ball")
+		var centre := _vector(end.get("centre", [9.0, 9.0, 9.0]))
+		_expect(failures, end.get("form", -1) == LeafLitter.Form.BALL and end.get("speed", 9.0) <= 0.05
+				and absf(centre.y - 1.052) <= 0.01, "it lies still on the table (centre %.3f m up, %.3f m/s)" % [
+				centre.y, end.get("speed", 9.0)])
+		_expect(failures, end.get("layer", 0) == LeafLitter.BALL_LAYER and end.get("mask", -1) == LeafLitter.BALL_MASK,
+				"with a ball's layers back (%d, %d)" % [end.get("layer", 0), end.get("mask", -1)])
+
+
 ## The checks for a lone piece walked into (2026-10-03), from "expect": "walked"
 ## {"moved", "rolled_on", "rest_by"}: the piece is lone and damps its spin by
 ## its tree's lone_angular_damp; it lay still as the walk began; the player
@@ -6679,6 +7482,29 @@ func _drive_grab_lift_box(t: float) -> bool:
 	_place_palm(false, Vector3(0.0, lerpf(above + 0.1, above, reach) + lift, lerpf(-0.2, -0.33, reach)))
 	_rig.right_grip = 1.0 if t >= 1.5 and t < 4.0 else 0.0
 	_track_grab(_level.get_node("Dynamic/LightBox") as RigidBody3D, t)
+	return false
+
+
+## The right palm comes down flat 2 cm above the leaf pile's ball (its top
+## 1.10 m) by 1.2 s and grips at 1.5 s: the pile is a ball, seated in the palm.
+## The hand lifts 0.45 m by 2.5 s and holds there. "lay_down": it comes down to
+## 5 cm above where it gripped and 15 cm to the player's right by 3.8 s, and
+## lets go at 4.2 s; otherwise it lets go up there at 3.0 s.
+func _drive_litter(t: float) -> bool:
+	var lay_down: bool = _scenarios[_index].lay_down
+	var reach := clampf((t - 0.5) / 0.7, 0.0, 1.0)
+	var above := 1.002 + 0.1 + _palm_half_thickness() + 0.02
+	var lift := 0.45 * smoothstep(1.7, 2.5, t)
+	var aside := 0.0
+	if lay_down:
+		lift -= 0.4 * smoothstep(3.0, 3.8, t)
+		aside = 0.15 * smoothstep(3.0, 3.8, t)
+	_place_palm(false, Vector3(aside, lerpf(above + 0.1, above, reach) + lift, -0.35))
+	var let_go_at := 4.2 if lay_down else 3.0
+	_rig.right_grip = 1.0 if t >= 1.5 and t < let_go_at else 0.0
+	# Burnt away in the hand (fire_burn_in_hand), it is followed no longer.
+	if is_instance_valid(_scenario_state.litter_body):
+		_track_litter(_scenario_state.litter_body as LeafLitter, t, let_go_at)
 	return false
 
 
@@ -8257,6 +9083,15 @@ func _add_stool(feet: Vector3) -> StaticBody3D:
 	return stool
 
 
+## The oak leaf pile (LeafLitter), added to the level with its middle at `at`
+## (world, in the frame the scenario was written in).
+func _add_litter(at: Vector3) -> LeafLitter:
+	var litter := (load("res://scenes/props/oak_leaf_litter.tscn") as PackedScene).instantiate() as LeafLitter
+	litter.transform = (_level as Node3D).transform.affine_inverse() * Transform3D(Basis.IDENTITY, at)
+	_level.add_child(litter)
+	return litter
+
+
 ## A box-shaped loose prop added to the level for one scenario.
 func _spawn_prop(size: Vector3, mass: float, position: Vector3) -> RigidBody3D:
 	var prop := RigidBody3D.new()
@@ -8281,6 +9116,38 @@ func _track_prop(prop: RigidBody3D, t: float) -> void:
 	_scenario_state.prop_moved = [moved.x, moved.y, moved.z]
 	_scenario_state.prop_rise = maxf(_scenario_state.get("prop_rise", 0.0), moved.y)
 	_scenario_state.prop_speed = maxf(_scenario_state.get("prop_speed", 0.0), prop.linear_velocity.length())
+
+
+## What the leaf litter is as _drive_litter goes ("litter"): a ball in the
+## hand once gripped; whether a line shows held high (2.5 to 2.95 s) and, laying
+## it down, held low (3.9 s until let go), and where the line meets the ground
+## then; what it is 0.1 s after it is let go, and at the end.
+func _track_litter(litter: LeafLitter, t: float, let_go_at: float) -> void:
+	var state: Dictionary = _scenario_state.get("litter", {"line_high": false, "low_ticks": 0, "line_low_ticks": 0})
+	var centre := litter.sphere.global_position
+	state.grabs = (_player.physical as DynamicPhysical).right_grab.grabs
+	if not state.has("start"):
+		state.start = [centre.x, centre.y, centre.z]
+	if t >= 2.0 and not state.has("ball_held"):
+		state.ball_held = not litter.grabbable.holders.is_empty() and litter.form == LeafLitter.Form.BALL \
+				and litter.ball_model.visible and not litter.pile_model.visible
+	if t >= 2.5 and t < 2.95:
+		state.line_high = state.line_high or litter.can_place or litter.place_line.visible
+		state.high_rise = maxf(state.get("high_rise", 0.0), centre.y - (state.start[1] as float))
+	if t >= 3.9 and t < let_go_at:
+		state.low_ticks += 1
+		if litter.can_place and litter.place_line.visible:
+			state.line_low_ticks += 1
+		state.place_point = [litter.place_point.x, litter.place_point.y, litter.place_point.z]
+		state.ball_centre = [centre.x, centre.y, centre.z]
+	var lies := litter.global_position
+	if t >= let_go_at + 0.1 and not state.has("after"):
+		state.after = {"form": litter.form, "frozen": litter.freeze, "line": litter.place_line.visible,
+				"pile_shown": litter.pile_model.visible and not litter.ball_model.visible, "at": [lies.x, lies.y, lies.z]}
+	state.end = {"form": litter.form, "frozen": litter.freeze, "at": [lies.x, lies.y, lies.z],
+			"centre": [centre.x, centre.y, centre.z], "speed": litter.linear_velocity.length(),
+			"layer": litter.collision_layer, "mask": litter.collision_mask}
+	_scenario_state.litter = state
 
 
 ## How deep the right palm's box is in the level or a prop, while `holding`.
@@ -8470,6 +9337,96 @@ func _set_hand(left: bool, position: Vector3) -> void:
 	if left:
 		offset.x = -offset.x
 	_place_palm(left, position + offset)
+
+
+## The right palm, facing down, comes from 25 cm to the player's right of the
+## furnace's slot and 15 cm above it into it by 1.2 s (its grab point well in
+## the zone), grips at 1.5 s, and draws back 0.3 m toward the player and 0.25 m
+## up by 2.5 s, holding on to the end.
+func _drive_slot_take(t: float) -> bool:
+	var slot := _level.get_node(SLOTS[0]) as InventorySlot
+	var at := _head_frame().affine_inverse() * slot.global_position
+	var into := smoothstep(0.5, 1.2, t)
+	var out := smoothstep(1.7, 2.5, t)
+	_place_palm(false, at + Vector3(0.25, 0.15, 0.0).lerp(Vector3.ZERO, into) + Vector3(0.0, 0.25, 0.3) * out)
+	_rig.right_grip = 1.0 if t >= 1.5 else 0.0
+	_track_slot(slot, t)
+	return false
+
+
+## The scenario's "hand_item" appears under the right palm, facing down 30 cm
+## to the player's right of the furnace's slot and 10 cm above it, at 1.45 s
+## ("hand_drop" m below the hand's grab point), and the grip closes at 1.5 s.
+## The hand carries it into the slot by 2.5 s and opens at 3.0 s, then draws
+## back 0.3 m toward the player and 0.2 m up by 3.8 s.
+func _drive_slot_store(t: float) -> bool:
+	var scenario := _scenarios[_index]
+	var slot := _level.get_node(SLOTS[0]) as InventorySlot
+	var at := _head_frame().affine_inverse() * slot.global_position
+	var into := smoothstep(1.8, 2.5, t)
+	var back := smoothstep(3.2, 3.8, t)
+	_place_palm(false, at + Vector3(0.3, 0.1, 0.0).lerp(Vector3.ZERO, into) + Vector3(0.0, 0.2, 0.3) * back)
+	if t >= 1.45 and not _scenario_state.has("hand_body"):
+		var body := (load(scenario.hand_item) as PackedScene).instantiate() as RigidBody3D
+		var grab := (_player.physical as DynamicPhysical).right_grab
+		# A stick (a handle) lies level, across the palm.
+		var grabbable := body.get_node_or_null(^"Grabbable") as Grabbable
+		var turn := Basis(Vector3.BACK, PI / 2.0) if grabbable != null and not grabbable.handles.is_empty() else Basis.IDENTITY
+		var place := Transform3D(turn, grab.hand_point + Vector3.DOWN * float(scenario.hand_drop))
+		body.transform = (_level as Node3D).global_transform.affine_inverse() * place
+		_level.add_child(body)
+		_scenario_state.hand_body = body
+	_rig.right_grip = 1.0 if t >= 1.5 and t < 3.0 else 0.0
+	_track_slot(slot, t)
+	return false
+
+
+## The furnace's slot and the right hand as a slot scenario goes ("inventory"):
+## whether the hand selected it (the slot grown) over the scenario's "hover"
+## window; what the hand held and how (its gap at the grab point, how fast the
+## held prop went, a handle's turn from the fist's line); the slot's count and
+## item; throws; and the prop the scenario put in the hand, if any: whether it
+## is gone, and its height let go (3.0 s) and now.
+func _track_slot(slot: InventorySlot, t: float) -> void:
+	var state: Dictionary = _scenario_state.get("inventory",
+			{"selected_ticks": 0, "grown": 0.0, "held_ticks": 0, "held_gap": 0.0, "held_speed": 0.0})
+	var grab := (_player.physical as DynamicPhysical).right_grab
+	if not state.has("count_start"):
+		state.count_start = slot.count
+		state.throws_start = _state.throws[1]
+	var shown := slot.face.global_basis.get_scale().x
+	var hover: Array = _scenarios[_index].hover
+	if t >= float(hover[0]) and t < float(hover[1]):
+		if slot.selected() and grab.slot == slot:
+			state.selected_ticks += 1
+		state.grown = maxf(state.grown, shown)
+	if grab.state == HandGrab.State.HOLDING and is_instance_valid(grab.target):
+		var body := grab.target as RigidBody3D
+		var storable := Storable.of(body)
+		state.held_id = String(storable.item.id) if storable != null else ""
+		state.held_ticks += 1
+		state.held_gap = maxf(state.held_gap, grab.gap)
+		state.held_speed = maxf(state.held_speed, body.linear_velocity.length())
+		if not Grabbable.of(body).handles.is_empty():
+			var along := absf(body.global_basis.y.normalized().dot(grab.drive.hand.global_basis.y.normalized()))
+			state.handle_turn = rad_to_deg(acos(clampf(along, -1.0, 1.0)))
+	state.grabs = grab.grabs
+	state.state = grab.state
+	state.count = slot.count
+	state.item = String(slot.item.id) if slot.item != null else ""
+	state.end_selected = slot.selected()
+	state.end_scale = shown
+	state.throws = _state.throws[1] - int(state.throws_start)
+	if _scenario_state.has("hand_body"):
+		if not is_instance_valid(_scenario_state.hand_body) or (_scenario_state.hand_body as Node).is_queued_for_deletion():
+			state.hand_body_gone = true
+		else:
+			state.hand_body_gone = false
+			var y := (_scenario_state.hand_body as Node3D).global_position.y
+			if t >= 3.0 and not state.has("released_y"):
+				state.released_y = y
+			state.hand_body_y = y
+	_scenario_state.inventory = state
 
 
 ## Where a palm's centre sits resting flat on the table's top (1.0 m).

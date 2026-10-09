@@ -1,12 +1,16 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://dt8wo7stjmb0s"]
 
 [ext_resource type="PackedScene" uid="uid://cao38cfkrnbb" path="res://assets/models/props/furnace.glb" id="1_model"]
 [ext_resource type="PackedScene" path="res://scenes/props/bellows.tscn" id="2_bellows"]
+[ext_resource type="PackedScene" path="res://scenes/inventory/inventory_slot.tscn" id="3_slot"]
 
-[node name="Furnace" type="Node3D"]
+[node name="Furnace" type="Node3D" unique_id=1121976220]
 
-[node name="Model" parent="." instance=ExtResource("1_model")]
+[node name="Model" parent="." unique_id=826506514 instance=ExtResource("1_model")]
 transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
 
-[node name="Bellows" parent="Model" instance=ExtResource("2_bellows")]
+[node name="Bellows" parent="Model" unique_id=551559343 instance=ExtResource("2_bellows")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6650969, 0.2549174, 0)
+
+[node name="InventorySlot" parent="." unique_id=375019989 instance=ExtResource("3_slot")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0.9)

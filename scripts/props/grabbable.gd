@@ -30,6 +30,17 @@ extends Node
 ## in a tick (10-13 cm at a run in the harness; the player saw the held object
 ## drift out of the hand while running). Physics runs at the display's rate,
 ## so interpolation gains a loose body little.
+##
+## A body may change what it is when picked up or let go (2026-10-04, a leaf
+## pile that becomes a ball in the hand: LeafLitter). grabbed comes before the
+## first grab keeps the body's layers, so it keeps what the body became, and
+## set_own_layers changes the layers a let-go body gets back.
+
+## A hand grabs the body: emitted before the grab keeps the body's own layers.
+signal grabbed(hand: HandGrab)
+## The last hand holding the body has let it go (a throw has already set its
+## velocity).
+signal released(hand: HandGrab)
 
 ## The Grabbable collision layer (layer 3), where the hands search.
 const GRABBABLE_LAYER := 4
@@ -48,6 +59,9 @@ const _META := &"grabbable"
 
 ## Whether hands may grab the body now.
 @export var enabled := true
+## Whether hands may grab the body while it is frozen and no hand holds it
+## (a leaf pile lying fixed where it is); otherwise a frozen body is fixed.
+@export var grab_frozen := false
 ## Shapes of the body held as handles, each a box, capsule or cylinder whose
 ## own Y runs along the handle. A hand beside one holds it with the handle's Y
 ## along the fist's grip, toward the thumb or the little finger, and its palm
@@ -139,6 +153,7 @@ func open_to(hand: HandGrab) -> bool:
 ## meet `hand` (a hand taking back what it is still clearing never stopped
 ## ignoring it; Jolt counts each exception added, so it is added once).
 func hold(hand: HandGrab) -> void:
+	grabbed.emit(hand)
 	if hand not in holders and hand not in _clearing:
 		body.add_collision_exception_with(hand.drive.hand)
 	_clearing.erase(hand)
@@ -187,6 +202,19 @@ func let_go(hand: HandGrab) -> void:
 	holders.erase(hand)
 	if hand not in _clearing:
 		_clearing.append(hand)
+	if holders.is_empty():
+		released.emit(hand)
+
+
+## Changes the body's own layers: at once if no hand holds it or is clearing
+## it, otherwise the ones it gets back once they are all clear of it.
+func set_own_layers(layer: int, mask: int) -> void:
+	if _saved:
+		_layer = layer
+		_mask = mask
+	else:
+		body.collision_layer = layer
+		body.collision_mask = mask
 
 
 ## `hand`, having let go, is clear of the body, which meets it again. Once no

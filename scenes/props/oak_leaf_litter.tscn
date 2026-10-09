@@ -1,0 +1,88 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/props/leaf_litter.gd" id="1_litter"]
+[ext_resource type="Script" uid="uid://dg7iv2u86r00u" path="res://scripts/props/grabbable.gd" id="2_grabbable"]
+[ext_resource type="PackedScene" uid="uid://7vlupm265fxi" path="res://assets/vegetation/oak/oak_leaf_litter.glb" id="3_pile"]
+[ext_resource type="PackedScene" uid="uid://befdky0gmq8gt" path="res://assets/vegetation/oak/oak_leaf_ball.glb" id="4_ball"]
+[ext_resource type="Script" path="res://scripts/fire/fuel.gd" id="5_fuel"]
+[ext_resource type="Script" path="res://scripts/fire/tinder.gd" id="6_tinder"]
+[ext_resource type="PackedScene" uid="uid://e30eypqc6epi" path="res://scenes/effects/fire.tscn" id="7_fire"]
+[ext_resource type="PackedScene" uid="uid://x75xjbsv8ye1" path="res://assets/models/fire/ash_pile.glb" id="8_ash"]
+[ext_resource type="Script" path="res://scripts/inventory/storable.gd" id="20_storable"]
+[ext_resource type="Resource" path="res://assets/items/oak_leaf_litter.tres" id="21_item"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_leaves"]
+friction = 1.0
+rough = true
+bounce = 0.0
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_ball"]
+radius = 0.05
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_line"]
+shading_mode = 0
+albedo_color = Color(0.25, 1, 0.35, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_line"]
+material = SubResource("StandardMaterial3D_line")
+top_radius = 0.004
+bottom_radius = 0.004
+height = 1.0
+radial_segments = 6
+rings = 1
+
+[node name="OakLeafLitter" type="RigidBody3D" node_paths=PackedStringArray("grabbable", "sphere", "pile_model", "ball_model", "place_line", "tinder", "ash_model")]
+collision_layer = 4
+collision_mask = 0
+mass = 0.2
+physics_material_override = SubResource("PhysicsMaterial_leaves")
+freeze = true
+max_contacts_reported = 4
+linear_damp = 0.6
+angular_damp = 6.0
+script = ExtResource("1_litter")
+grabbable = NodePath("Grabbable")
+sphere = NodePath("Ball")
+pile_model = NodePath("PileModel")
+ball_model = NodePath("BallModel")
+place_line = NodePath("PlaceLine")
+tinder = NodePath("Tinder")
+ash_model = NodePath("AshModel")
+
+[node name="Ball" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+shape = SubResource("SphereShape3D_ball")
+
+[node name="PileModel" parent="." instance=ExtResource("3_pile")]
+
+[node name="BallModel" parent="." instance=ExtResource("4_ball")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+visible = false
+
+[node name="AshModel" parent="." instance=ExtResource("8_ash")]
+visible = false
+
+[node name="PlaceLine" type="MeshInstance3D" parent="."]
+visible = false
+cast_shadow = 0
+mesh = SubResource("CylinderMesh_line")
+
+[node name="Grabbable" type="Node" parent="."]
+script = ExtResource("2_grabbable")
+grab_frozen = true
+
+[node name="Fuel" type="Node" parent="." node_paths=PackedStringArray("centre")]
+script = ExtResource("5_fuel")
+vanishes = false
+centre = NodePath("../Ball")
+readout_height = 0.2
+
+[node name="Tinder" type="Node" parent="." node_paths=PackedStringArray("fuel", "centre")]
+script = ExtResource("6_tinder")
+fuel = NodePath("../Fuel")
+centre = NodePath("../Ball")
+fire_scene = ExtResource("7_fire")
+
+[node name="Storable" type="Node" parent="."]
+script = ExtResource("20_storable")
+item = ExtResource("21_item")

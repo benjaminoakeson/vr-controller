@@ -62,7 +62,7 @@ func _drop() -> void:
 		items.append(loot.instantiate() as Node3D)
 	# A ring whose neighbours are a spacing apart, so no two drops overlap:
 	# each lies within its reach of its origin, however it is turned.
-	var spacing := 2.0 * _reach(items[0]) + gap
+	var spacing := 2.0 * reach_of(items[0]) + gap
 	var ring := spacing / (2.0 * sin(PI / count)) if count > 1 else 0.0
 	var facing := Basis(Vector3.UP, object.global_rotation.y)
 	var middle := centre.global_position if is_instance_valid(centre) else _middle(object)
@@ -74,7 +74,7 @@ func _drop() -> void:
 			# Turned about the line out from the middle: its Y goes along the ring.
 			pose.basis = pose.basis * Basis(Vector3.RIGHT, PI / 2.0)
 		var rises := 0
-		while rises < _RISES and not _clear(items[i], pose, space, own):
+		while rises < _RISES and not is_clear(items[i], pose, space, own):
 			pose.origin.y += spacing
 			rises += 1
 		items[i].transform = frame.affine_inverse() * pose
@@ -96,7 +96,7 @@ static func _middle(object: Node3D) -> Vector3:
 
 
 # How far `item`'s collision shapes reach from its origin, in metres.
-static func _reach(item: Node3D) -> float:
+static func reach_of(item: Node3D) -> float:
 	var reach := 0.0
 	for child in item.get_children():
 		var shape := child as CollisionShape3D
@@ -112,7 +112,7 @@ static func _reach(item: Node3D) -> float:
 
 # Whether `item` at `pose` would meet nothing it collides with, the bodies in
 # `ignore` aside.
-static func _clear(item: Node3D, pose: Transform3D, space: PhysicsDirectSpaceState3D,
+static func is_clear(item: Node3D, pose: Transform3D, space: PhysicsDirectSpaceState3D,
 		ignore: Array[RID]) -> bool:
 	var body := item as CollisionObject3D
 	if body == null:

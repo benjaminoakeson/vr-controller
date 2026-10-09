@@ -29,20 +29,24 @@
 [ext_resource type="Resource" uid="uid://d13ec6xhhikvb" path="res://assets/vegetation/trees/straight_pine.tres" id="37_0fmhk"]
 [ext_resource type="PackedScene" path="res://scenes/props/pickaxe.tscn" id="40_pickaxe"]
 [ext_resource type="PackedScene" path="res://scenes/props/axe.tscn" id="41_axe"]
+[ext_resource type="PackedScene" path="res://scenes/props/oak_leaf_litter.tscn" id="42_0fmhk"]
 [ext_resource type="Script" uid="uid://d3ng4fi350pgp" path="res://scripts/props/climbable.gd" id="42_climbable"]
+[ext_resource type="PackedScene" uid="uid://osest71s44ar" path="res://scenes/props/wood/stick.tscn" id="45_lqb7q"]
+[ext_resource type="PackedScene" path="res://scenes/props/wood/log.tscn" id="46_ok3ci"]
+[ext_resource type="PackedScene" uid="uid://x75xjbsv8ye1" path="res://assets/models/fire/ash_pile.glb" id="47_ok3ci"]
 [ext_resource type="PackedScene" path="res://scenes/props/ores/copper_ore.tscn" id="50_copper_ore"]
 [ext_resource type="PackedScene" path="res://scenes/props/ores/iron_ore.tscn" id="51_iron_ore"]
 [ext_resource type="PackedScene" path="res://scenes/props/ores/gold_ore.tscn" id="52_gold_ore"]
 [ext_resource type="PackedScene" path="res://scenes/props/ores/silver_ore.tscn" id="53_silver_ore"]
 [ext_resource type="PackedScene" path="res://scenes/props/ores/cobalt_ore.tscn" id="54_cobalt_ore"]
-[ext_resource type="PackedScene" path="res://scenes/props/wood/log.tscn" id="60_log"]
-[ext_resource type="PackedScene" path="res://scenes/props/wood/stick.tscn" id="61_stick"]
 [ext_resource type="Script" uid="uid://lxa71jur0l1e" path="res://scripts/strike/strikeable.gd" id="62_strikeable"]
 [ext_resource type="Resource" path="res://assets/strike/wood.tres" id="63_wood"]
 [ext_resource type="Script" uid="uid://dtoecukka3qjd" path="res://scripts/trees/tree_chop.gd" id="64_tree_chop"]
 [ext_resource type="Script" uid="uid://defwpcocgg68k" path="res://scripts/trees/tree_chop_display.gd" id="65_chop_display"]
 [ext_resource type="PackedScene" path="res://scenes/props/furnace.tscn" id="70_furnace"]
 [ext_resource type="PackedScene" uid="uid://e30eypqc6epi" path="res://scenes/effects/fire.tscn" id="80_fire"]
+[ext_resource type="PackedScene" path="res://scenes/props/stone/flint.tscn" id="90_flint"]
+[ext_resource type="PackedScene" path="res://scenes/props/stone/stone.tscn" id="91_stone"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_dpmpi"]
 size = Vector3(0.1, 0.1, 0.1)
@@ -334,6 +338,12 @@ transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 1, 1.038, -3.55)
 [node name="Axe" parent="Dynamic" unique_id=350822991 instance=ExtResource("41_axe")]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 1, 1.0185, -4.3)
 
+[node name="Flint" parent="Dynamic" unique_id=1904417262 instance=ExtResource("90_flint")]
+transform = Transform3D(0.81691664, -0.064387165, -0.57315046, -0.031238666, 0.9873508, -0.15544279, 0.5759091, 0.14488827, 0.804572, 1.099191, 1.0019078, -3.7433128)
+
+[node name="Stone" parent="Dynamic" unique_id=736252819 instance=ExtResource("91_stone")]
+transform = Transform3D(0.93026394, -0.11581341, 0.34813255, 0.16645202, 0.97882307, -0.11915997, -0.32695985, 0.16879758, 0.92984116, 0.8939014, 1.0515838, -3.7352135)
+
 [node name="VrController" parent="." unique_id=788331903 instance=ExtResource("2_w8frs")]
 
 [node name="PlanarMirror" parent="." unique_id=1999928701 instance=ExtResource("3_mx8sn")]
@@ -411,12 +421,6 @@ metadata/_custom_type_script = "uid://dtoecukka3qjd"
 script = ExtResource("65_chop_display")
 chop = NodePath("../TreeChop")
 metadata/_custom_type_script = "uid://defwpcocgg68k"
-
-[node name="Log" parent="." unique_id=1487276164 instance=ExtResource("60_log")]
-transform = Transform3D(-0.021754, -0.999757, -0.003656, 0.880167, -0.020886, 0.474205, -0.474166, 0.007098, 0.880407, 0.7, 0.0535, -10)
-
-[node name="Stick" parent="." unique_id=459465575 instance=ExtResource("61_stick")]
-transform = Transform3D(0, -0.9063078, 0.42261827, 1, 0, 0, 0, 0.42261827, 0.9063078, -0.6, 0.034, -9.9)
 
 [node name="OpenFloor" type="Marker3D" parent="." unique_id=1576168497]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 1)
@@ -496,6 +500,29 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -3.6)
 
 [node name="Fire" parent="." unique_id=160482788 instance=ExtResource("80_fire")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0.125, 3.5)
+
+[node name="OakLeafLitter1" parent="." unique_id=704567363 instance=ExtResource("42_0fmhk")]
+transform = Transform3D(0.79863554, 0, 0.601815, 0, 1, 0, -0.601815, 0, 0.79863554, -1.1, 0, -10.6)
+
+[node name="OakLeafLitter2" parent="." unique_id=1560422973 instance=ExtResource("42_0fmhk")]
+transform = Transform3D(-0.82903755, 0, -0.55919296, 0, 1, 0, 0.55919296, 0, -0.82903755, 1.4, 0, -11.3)
+
+[node name="FireTest" type="Node3D" parent="." unique_id=333925043]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 0, -3.4)
+
+[node name="Litter" parent="FireTest" unique_id=1121122801 instance=ExtResource("42_0fmhk")]
+
+[node name="Stick1" parent="FireTest" unique_id=1841685083 instance=ExtResource("45_lqb7q")]
+transform = Transform3D(1, 0, 0, 0, 7.54979e-08, -1, 0, 1, 7.54979e-08, 0.16, 0.036, 0)
+
+[node name="Stick2" parent="FireTest" unique_id=1523405194 instance=ExtResource("45_lqb7q")]
+transform = Transform3D(1, 0, 0, 0, 7.54979e-08, -1, 0, 1, 7.54979e-08, -0.16, 0.036, 0)
+
+[node name="Log" parent="FireTest" unique_id=467321471 instance=ExtResource("46_ok3ci")]
+transform = Transform3D(1, 0, 0, 0, 7.54979e-08, -1, 0, 1, 7.54979e-08, 0, 0.065, -1)
+
+[node name="ash_pile" parent="." unique_id=615388828 instance=ExtResource("47_ok3ci")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2143914, 0.0020002385, -3.3394473)
 
 [editable path="VrController"]
 [editable path="VrController/Rig"]

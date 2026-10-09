@@ -1,4 +1,4 @@
-"""Exports the weapons and tools, the ore and wood items, the furnace and its bellows from craftables.blend as glTF binaries.
+"""Exports the weapons and tools, the ore, wood and stone items, the furnace and its bellows from craftables.blend as glTF binaries.
 
 Run from the repository root:
     blender -b --factory-startup <path>/craftables.blend \
@@ -10,7 +10,8 @@ craftables.blend is modelled at ten times life size (its sword is 6.8 units
 long), so each weapon is scaled by 0.1 to metres with its object transform
 applied. The origin stays where it is in Blender: inside the grip for the
 blades, at the centre of the head for the pickaxe and axe, at the middle of the ore and wood items,
-at the middle of the base for the furnace (its mouth faces +Z in Godot, its bellows port +X).
+near the middle of the flint and stone, at the middle of the base for the furnace (its mouth faces +Z
+in Godot, its bellows port +X).
 The bellows is an empty over its parts (base, lid, bag): each part becomes its own node at its own
 origin (the lid's is its hinge) under a root at the empty's origin, beside the nozzle. Its offset
 from the furnace's origin in the file is where it fits the port: 0.6651 m along +X, 0.2549 m up.
@@ -29,7 +30,8 @@ WEAPONS = {"Dagger": "weapons/dagger.glb", "Sword": "weapons/sword.glb", "LongSw
            "Pickaxe": "weapons/pickaxe.glb", "Axe": "weapons/axe.glb",
            "CopperOre": "ores/copper_ore.glb", "IronOre": "ores/iron_ore.glb", "GoldOre": "ores/gold_ore.glb",
            "SilverOre": "ores/silver_ore.glb", "CobaltOre": "ores/cobalt_ore.glb",
-           "Log": "wood/log.glb", "Stick": "wood/stick.glb", "Furnace": "props/furnace.glb",
+           "Log": "wood/log.glb", "Stick": "wood/stick.glb",
+           "Flint": "stone/flint.glb", "Stone": "stone/stone.glb", "Furnace": "props/furnace.glb",
            "Bellows": "props/bellows.glb"}
 SCALE = 0.1
 OUT_DIR = os.path.join(os.getcwd(), "assets", "models")

@@ -4,6 +4,9 @@
 [ext_resource type="Shape3D" path="res://scenes/props/wood/log_shape.tres" id="2_shape"]
 [ext_resource type="Script" uid="uid://dg7iv2u86r00u" path="res://scripts/props/grabbable.gd" id="3_grabbable"]
 [ext_resource type="Script" uid="uid://drgvvw7c8uncj" path="res://scripts/strike/striker.gd" id="4_striker"]
+[ext_resource type="Script" path="res://scripts/fire/fuel.gd" id="5_fuel"]
+[ext_resource type="Script" path="res://scripts/inventory/storable.gd" id="20_storable"]
+[ext_resource type="Resource" path="res://assets/items/log.tres" id="21_item"]
 
 [node name="Log" type="RigidBody3D"]
 collision_layer = 2
@@ -22,3 +25,12 @@ script = ExtResource("3_grabbable")
 
 [node name="Striker" type="Node" parent="."]
 script = ExtResource("4_striker")
+
+[node name="Fuel" type="Node" parent="."]
+script = ExtResource("5_fuel")
+seconds = 300.0
+readout_height = 0.25
+
+[node name="Storable" type="Node" parent="."]
+script = ExtResource("20_storable")
+item = ExtResource("21_item")

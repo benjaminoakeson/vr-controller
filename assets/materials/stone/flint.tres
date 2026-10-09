@@ -1,0 +1,22 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://chws5ufs72wwu"]
+
+[ext_resource type="Shader" uid="uid://bm6obtn3ajukm" path="res://assets/materials/stone/rock.gdshader" id="1_rock"]
+
+[resource]
+resource_name = "flint"
+render_priority = 0
+shader = ExtResource("1_rock")
+shader_parameter/dark_colour = Color(0.05, 0.05, 0.052, 1)
+shader_parameter/light_colour = Color(0.17, 0.16, 0.15, 1)
+shader_parameter/mottle_size_m = 0.018
+shader_parameter/mottle_sharpness = 0.15
+shader_parameter/bands_per_patch = 3.0
+shader_parameter/band_strength = 0.15
+shader_parameter/grain_size_m = 0.0012
+shader_parameter/pale_grain_colour = Color(0.55, 0.53, 0.5, 1)
+shader_parameter/pale_grains = 0.03
+shader_parameter/dark_grain_colour = Color(0.02, 0.02, 0.025, 1)
+shader_parameter/dark_grains = 0.0
+shader_parameter/roughness_dark = 0.28
+shader_parameter/roughness_light = 0.42
+shader_parameter/specular = 0.5

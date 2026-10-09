@@ -1,0 +1,21 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bwjr8y28bjwoq"]
+
+[ext_resource type="Shader" path="res://assets/vegetation/trees/dead_leaf.gdshader" id="1_hxf70"]
+
+[resource]
+resource_name = "oak_leaf_litter"
+render_priority = 0
+shader = ExtResource("1_hxf70")
+shader_parameter/vein_lightness = 0.3
+shader_parameter/midrib_width = 0.03
+shader_parameter/vein_width = 0.018
+shader_parameter/vein_first = Vector2(-0.023, 0.024)
+shader_parameter/vein_spacing = Vector2(0.185, 0.18)
+shader_parameter/vein_slant = 0.5
+shader_parameter/lateral_veins = 4.0
+shader_parameter/blotch_size_m = 0.025
+shader_parameter/blotch_darkness = 0.35
+shader_parameter/underside_tint = Color(0.78, 0.72, 0.6, 1)
+shader_parameter/underside_mix = 0.35
+shader_parameter/roughness = 0.9
+shader_parameter/specular = 0.25

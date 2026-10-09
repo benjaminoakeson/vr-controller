@@ -72,13 +72,15 @@ var _ids := PackedInt64Array()
 var _engaged := PackedByteArray()
 var _struck_at := PackedFloat64Array()
 # Per slot, this tick's touching contacts: how many, and the sums of their
-# points on this body and on the struck one, of their normals and of their
-# relative velocities; and the least gap.
+# points on this body and on the struck one, of their normals, of their
+# relative velocities and of the struck surface's own velocities; and the least
+# gap.
 var _counts := PackedInt32Array()
 var _points := PackedVector3Array()
 var _surfaces := PackedVector3Array()
 var _normals := PackedVector3Array()
 var _velocities := PackedVector3Array()
+var _surface_velocities := PackedVector3Array()
 var _gaps := PackedFloat32Array()
 
 
@@ -107,6 +109,7 @@ func _ready() -> void:
 	_surfaces.resize(_SLOTS)
 	_normals.resize(_SLOTS)
 	_velocities.resize(_SLOTS)
+	_surface_velocities.resize(_SLOTS)
 	_gaps.resize(_SLOTS)
 	_ids.fill(0)
 	_engaged.fill(0)
@@ -164,6 +167,7 @@ func _gather(state: PhysicsDirectBodyState3D, count: int) -> void:
 	_surfaces.fill(Vector3.ZERO)
 	_normals.fill(Vector3.ZERO)
 	_velocities.fill(Vector3.ZERO)
+	_surface_velocities.fill(Vector3.ZERO)
 	_gaps.fill(INF)
 	for i in count:
 		var target := Strikeable.of(state.get_contact_collider_object(i))
@@ -174,8 +178,8 @@ func _gather(state: PhysicsDirectBodyState3D, count: int) -> void:
 		var point := state.get_contact_local_position(i)
 		var surface := state.get_contact_collider_position(i)
 		var gap := (point - surface).dot(normal)
-		var relative := state.get_contact_local_velocity_at_position(i) \
-				- state.get_contact_collider_velocity_at_position(i)
+		var surface_velocity := state.get_contact_collider_velocity_at_position(i)
+		var relative := state.get_contact_local_velocity_at_position(i) - surface_velocity
 		if not touches(gap, -relative.dot(normal), state.step, touch_margin):
 			continue
 		var slot := _slot_of(target)
@@ -186,6 +190,7 @@ func _gather(state: PhysicsDirectBodyState3D, count: int) -> void:
 		_surfaces[slot] = _surfaces[slot] + surface
 		_normals[slot] = _normals[slot] + normal
 		_velocities[slot] = _velocities[slot] + relative
+		_surface_velocities[slot] = _surface_velocities[slot] + surface_velocity
 		_gaps[slot] = minf(_gaps[slot], gap)
 
 
@@ -230,11 +235,12 @@ func _judge(state: PhysicsDirectBodyState3D) -> void:
 			continue
 		_struck_at[slot] = _clock
 		_strike(state, _targets[slot], _points[slot] / count, _surfaces[slot] / count, normal,
-				velocity, _gaps[slot])
+				velocity, _surface_velocities[slot] / count, _gaps[slot])
 
 
 func _strike(state: PhysicsDirectBodyState3D, target: Strikeable, point: Vector3,
-		surface: Vector3, normal: Vector3, velocity: Vector3, gap: float) -> void:
+		surface: Vector3, normal: Vector3, velocity: Vector3, surface_velocity: Vector3,
+		gap: float) -> void:
 	var hands := _holding_hands()
 	var strike := Strike.new()
 	var speed := -velocity.dot(normal)
@@ -246,6 +252,8 @@ func _strike(state: PhysicsDirectBodyState3D, target: Strikeable, point: Vector3
 	strike.point = surface
 	strike.normal = normal
 	strike.speed = speed
+	strike.velocity = velocity
+	strike.surface_velocity = surface_velocity
 	strike.gap = gap
 	for hand in hands:
 		strike.held_by |= 1 << hand.drive.side

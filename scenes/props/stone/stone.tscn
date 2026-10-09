@@ -1,0 +1,36 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" uid="uid://54it3eqimoty" path="res://assets/models/stone/stone.glb" id="1_model"]
+[ext_resource type="Shape3D" path="res://scenes/props/stone/stone_shape.tres" id="2_shape"]
+[ext_resource type="Script" uid="uid://dg7iv2u86r00u" path="res://scripts/props/grabbable.gd" id="3_grabbable"]
+[ext_resource type="Script" uid="uid://drgvvw7c8uncj" path="res://scripts/strike/striker.gd" id="4_striker"]
+[ext_resource type="Script" path="res://scripts/strike/strikeable.gd" id="5_strikeable"]
+[ext_resource type="Resource" path="res://assets/strike/stone.tres" id="6_stone"]
+[ext_resource type="Script" path="res://scripts/inventory/storable.gd" id="20_storable"]
+[ext_resource type="Resource" path="res://assets/items/stone.tres" id="21_item"]
+
+[node name="Stone" type="RigidBody3D"]
+collision_layer = 2
+collision_mask = 315
+mass = 1.65
+max_contacts_reported = 4
+
+[node name="Model" parent="." instance=ExtResource("1_model")]
+transform = Transform3D(0.45, 0, 0, 0, 0.45, 0, 0, 0, 0.45, 0, 0, 0)
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+shape = ExtResource("2_shape")
+
+[node name="Grabbable" type="Node" parent="."]
+script = ExtResource("3_grabbable")
+
+[node name="Striker" type="Node" parent="."]
+script = ExtResource("4_striker")
+
+[node name="Strikeable" type="Node" parent="."]
+script = ExtResource("5_strikeable")
+material = ExtResource("6_stone")
+
+[node name="Storable" type="Node" parent="."]
+script = ExtResource("20_storable")
+item = ExtResource("21_item")
